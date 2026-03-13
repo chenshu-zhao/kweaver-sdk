@@ -227,12 +227,14 @@ class BuildJob(BaseModel):
 class Agent(BaseModel):
     id: str
     name: str
+    key: str | None = None               # agent-factory app key
+    version: str | None = None            # agent version (e.g. "v20")
     description: str | None = None
-    status: str = "draft"                # published / draft
+    status: str = "draft"                 # published / draft
     kn_ids: list[str] = []
     system_prompt: str | None = None
     capabilities: list[str] = []
-    model_config_data: dict[str, Any] | None = None
+    model_config_data: Any = None
     conversation_count: int = 0
 
 

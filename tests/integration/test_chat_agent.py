@@ -1,6 +1,6 @@
 """Tests for chat_agent skill."""
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
 from kweaver.skills.chat_agent import ChatAgentSkill
 from kweaver.types import (
@@ -21,7 +21,7 @@ def _make_agent(**overrides):
 def test_ask_mode_creates_conversation():
     mock_client = MagicMock()
     mock_client.conversations.create.return_value = Conversation(
-        id="conv_new", agent_id="agent_01",
+        id="", agent_id="agent_01",
     )
     mock_client.conversations.send_message.return_value = Message(
         id="m1", role="assistant", content="库存充足",
@@ -33,10 +33,13 @@ def test_ask_mode_creates_conversation():
     result = skill.run(mode="ask", agent_id="agent_01", question="库存情况？")
 
     assert result["answer"] == "库存充足"
-    assert result["conversation_id"] == "conv_new"
+    assert result["conversation_id"] == ""
     assert len(result["references"]) == 1
     assert result["references"][0]["source"] == "库存表"
     mock_client.conversations.create.assert_called_once_with("agent_01")
+    # Verify agent_id is passed to send_message
+    send_call = mock_client.conversations.send_message.call_args
+    assert send_call.kwargs.get("agent_id") == "agent_01"
 
 
 def test_ask_mode_reuses_conversation():
@@ -59,7 +62,7 @@ def test_ask_mode_reuses_conversation():
 def test_ask_mode_stream():
     mock_client = MagicMock()
     mock_client.conversations.create.return_value = Conversation(
-        id="conv_s", agent_id="agent_01",
+        id="", agent_id="agent_01",
     )
     mock_client.conversations.send_message.return_value = iter([
         MessageChunk(delta="物料", finished=False),
@@ -82,7 +85,7 @@ def test_ask_mode_resolve_by_name():
     mock_client = MagicMock()
     mock_client.agents.list.return_value = [_make_agent()]
     mock_client.conversations.create.return_value = Conversation(
-        id="conv_01", agent_id="agent_01",
+        id="", agent_id="agent_01",
     )
     mock_client.conversations.send_message.return_value = Message(
         id="m1", role="assistant", content="OK",

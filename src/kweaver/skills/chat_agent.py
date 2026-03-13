@@ -33,11 +33,16 @@ class ChatAgentSkill(BaseSkill):
             conv = self.client.conversations.create(agent_id)
             conversation_id = conv.id
 
+        send_kwargs: dict[str, Any] = {
+            "agent_id": agent_id,
+            "stream": stream,
+        }
+
         if stream:
             chunks = []
             references = []
             for chunk in self.client.conversations.send_message(
-                conversation_id, question, stream=True
+                conversation_id, question, **send_kwargs
             ):
                 chunks.append(chunk.delta)
                 if chunk.references:
@@ -49,7 +54,7 @@ class ChatAgentSkill(BaseSkill):
             ]
         else:
             reply = self.client.conversations.send_message(
-                conversation_id, question
+                conversation_id, question, **send_kwargs
             )
             answer = reply.content
             refs = [

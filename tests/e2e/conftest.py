@@ -6,6 +6,7 @@ Follows the Alfred testing pattern:
   - Session-scoped fixtures for expensive setup (client, datasource)
   - Destructive marker for state-mutating tests (build/delete KN)
   - Factory fixtures for common operations
+  - Automatic token refresh via Playwright browser login
 """
 
 from __future__ import annotations
@@ -47,6 +48,64 @@ def _load_env_secrets() -> None:
             os.environ[key] = value
 
 _load_env_secrets()
+
+
+# ---------------------------------------------------------------------------
+# Playwright-based OAuth2 token refresh
+# ---------------------------------------------------------------------------
+
+def _refresh_adp_token(base_url: str, username: str, password: str) -> str:
+    """Login to ADP via browser and return a fresh Bearer token.
+
+    Uses Playwright (headless) to automate the Ory OAuth2 login flow:
+      1. GET /api/dip-hub/v1/login  → 302 → /oauth2/auth → /oauth2/signin
+      2. Fill account/password → click login button
+      3. OAuth2 consent auto-approved → callback sets dip.oauth2_token cookie
+
+    Returns the ory_at_* token string (without 'Bearer ' prefix).
+    """
+    import time as _time
+
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        context = browser.new_context()
+        page = context.new_page()
+
+        # Start the OAuth2 login flow
+        page.goto(
+            f"{base_url}/api/dip-hub/v1/login",
+            wait_until="networkidle",
+            timeout=30000,
+        )
+
+        # Fill the login form and submit
+        page.fill('input[name="account"]', username)
+        page.fill('input[name="password"]', password)
+        page.click("button.ant-btn-primary")
+
+        # Poll for the dip.oauth2_token cookie (set after OAuth2 callback)
+        token = None
+        for _ in range(30):
+            _time.sleep(1)
+            for cookie in context.cookies():
+                if cookie["name"] == "dip.oauth2_token":
+                    token = cookie["value"]
+                    break
+            if token:
+                break
+
+        browser.close()
+
+    if not token:
+        raise RuntimeError(
+            "Failed to extract ADP token after browser login. "
+            "Check ADP_USERNAME/ADP_PASSWORD in ~/.env.secrets"
+        )
+
+    return token
+
 
 # ---------------------------------------------------------------------------
 # Default environment registry
@@ -144,8 +203,21 @@ def e2e_env(request: pytest.FixtureRequest) -> dict[str, str]:
     if not env_cfg.get("base_url"):
         pytest.skip("E2E environment not available: ADP_BASE_URL not set")
 
-    if not env_cfg.get("token"):
-        pytest.skip("E2E environment not available: ADP_TOKEN not set")
+    # Auto-refresh token if credentials are available
+    username = os.getenv("ADP_USERNAME", "")
+    password = os.getenv("ADP_PASSWORD", "")
+    if username and password:
+        try:
+            fresh_token = _refresh_adp_token(
+                env_cfg["base_url"], username, password
+            )
+            env_cfg["token"] = f"Bearer {fresh_token}"
+        except Exception as exc:
+            # Fall back to static token if auto-login fails
+            if not env_cfg.get("token"):
+                pytest.skip(f"Token refresh failed and no static ADP_TOKEN: {exc}")
+    elif not env_cfg.get("token"):
+        pytest.skip("E2E environment not available: ADP_TOKEN not set and no ADP_USERNAME/ADP_PASSWORD")
 
     return env_cfg
 
