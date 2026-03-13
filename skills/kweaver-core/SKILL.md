@@ -1,14 +1,14 @@
 ---
 name: kweaver-core
 description: >-
-  通过 kweaver SDK 和 CLI 登录 KWeaver/ADP 平台、管理和查询知识网络、
+  通过 kweaver SDK 和 CLI 登录 KWeaver 平台、管理和查询知识网络、
   执行 Action、与 Decision Agent 对话。
   当用户需要认证、知识网络管理/查询、Agent 对话、Action 执行时使用。
 ---
 
 # KWeaver CLI
 
-KWeaver/ADP 平台的命令行工具，覆盖认证、数据源管理、知识网络管理与查询、Action 执行、Agent 对话六大能力。
+KWeaver 平台的命令行工具，覆盖认证、数据源管理、知识网络管理与查询、Action 执行、Agent 对话六大能力。
 
 ## 安装
 
@@ -32,11 +32,11 @@ pip install -e "/path/to/kweaver-sdk[cli]"
 
 CLI 按以下顺序尝试认证（无需用户干预）：
 
-1. **TokenAuth** — `ADP_TOKEN` + `ADP_BASE_URL` 环境变量同时存在时优先使用（静态 Token，不自动刷新）
-2. **PasswordAuth** — `ADP_USERNAME` + `ADP_PASSWORD` + `ADP_BASE_URL` 均存在时，通过 Playwright 浏览器自动登录获取并自动刷新 Token（需 `playwright install chromium`）
+1. **TokenAuth** — `KWEAVER_TOKEN` + `KWEAVER_BASE_URL` 环境变量同时存在时优先使用（静态 Token，不自动刷新）
+2. **PasswordAuth** — `KWEAVER_USERNAME` + `KWEAVER_PASSWORD` + `KWEAVER_BASE_URL` 均存在时，通过 Playwright 浏览器自动登录获取并自动刷新 Token（需 `playwright install chromium`）
 3. **ConfigAuth**（推荐长期使用）— 读取 `~/.kweaver/` 凭据（由 `kweaver auth login` 写入），自动刷新 Token
 
-环境变量 `ADP_BASE_URL` 和 `ADP_BUSINESS_DOMAIN` 用于指定平台地址和业务域。
+环境变量 `KWEAVER_BASE_URL` 和 `KWEAVER_BUSINESS_DOMAIN` 用于指定平台地址和业务域。
 
 ---
 

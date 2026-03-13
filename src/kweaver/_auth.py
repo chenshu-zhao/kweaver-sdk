@@ -94,7 +94,7 @@ class PasswordAuth:
 
         if not token:
             raise RuntimeError(
-                "Failed to extract ADP token after browser login. "
+                "Failed to extract KWeaver token after browser login. "
                 "Check username/password."
             )
 

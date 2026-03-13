@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from kweaver._errors import ADPError
+from kweaver._errors import KWeaverError
 from kweaver.types import RelationType
 
 if TYPE_CHECKING:
@@ -74,7 +74,7 @@ class RelationTypesResource:
             )
             items = data if isinstance(data, list) else data.get("entries", data.get("data", [data]))
             return _parse_relation_type(items[0], kn_id)
-        except ADPError as exc:
+        except KWeaverError as exc:
             if "Existed" in (exc.error_code or ""):
                 existing = self.list(kn_id)
                 for rt in existing:

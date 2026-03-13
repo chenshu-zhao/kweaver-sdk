@@ -1,4 +1,4 @@
-"""ADPClient — main entry point for the SDK."""
+"""KWeaverClient — main entry point for the SDK."""
 
 from __future__ import annotations
 
@@ -19,8 +19,8 @@ from kweaver.resources.query import QueryResource
 from kweaver.resources.relation_types import RelationTypesResource
 
 
-class ADPClient:
-    """Client for the ADP platform.
+class KWeaverClient:
+    """Client for the KWeaver platform.
 
     Provides access to all SDK resource modules via attribute-style access.
     Thread-safe and stateless (does not hold business data).
@@ -77,7 +77,7 @@ class ADPClient:
     def close(self) -> None:
         self._http.close()
 
-    def __enter__(self) -> ADPClient:
+    def __enter__(self) -> KWeaverClient:
         return self
 
     def __exit__(self, *args: Any) -> None:

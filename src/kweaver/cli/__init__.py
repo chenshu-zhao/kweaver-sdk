@@ -1,1 +1,1 @@
-"""KWeaver CLI — command-line interface for ADP platform."""
+"""KWeaver CLI — command-line interface for KWeaver platform."""

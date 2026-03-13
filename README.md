@@ -1,10 +1,10 @@
 # KWeaver SDK
 
-让 AI 智能体（Claude Code、GPT、自定义 Agent 等）通过 `kweaver` CLI 命令访问 KWeaver / ADP 平台的知识网络与 Decision Agent。同时提供 Python SDK 供程序化集成。
+让 AI 智能体（Claude Code、GPT、自定义 Agent 等）通过 `kweaver` CLI 命令访问 KWeaver 平台的知识网络与 Decision Agent。同时提供 Python SDK 供程序化集成。
 
 ## 这个项目解决什么问题
 
-KWeaver (ADP) 平台提供了知识网络构建、语义搜索、Decision Agent 对话等能力，但这些能力藏在复杂的 REST API 背后。本项目提供 **`kweaver` CLI 命令行工具**，智能体直接调用 shell 命令即可完成操作，无需了解底层 API 细节。
+KWeaver 平台提供了知识网络构建、语义搜索、Decision Agent 对话等能力，但这些能力藏在复杂的 REST API 背后。本项目提供 **`kweaver` CLI 命令行工具**，智能体直接调用 shell 命令即可完成操作，无需了解底层 API 细节。
 
 ## 架构
 
@@ -21,7 +21,7 @@ KWeaver (ADP) 平台提供了知识网络构建、语义搜索、Decision Agent 
 │  ds connect / kn create / query search / agent chat …   │
 ├─────────────────────────────────────────────────────────┤
 │  SDK 层（面向开发者）                                      │
-│  Python API，1:1 映射 ADP 概念                            │
+│  Python API，1:1 映射 KWeaver 概念                            │
 │  datasources · knowledge_networks · query · agents …    │
 ├─────────────────────────────────────────────────────────┤
 │  HTTP 层 + Config 层                                     │
@@ -33,7 +33,7 @@ KWeaver (ADP) 平台提供了知识网络构建、语义搜索、Decision Agent 
 |---|---|---|---|
 | **Skill** | AI Agent（Claude Code 等） | 意图→命令映射，操作手册，上下文引导 | Agent 调用 CLI 命令 |
 | **CLI** | AI Agent / 终端用户 | 多步编排（连接→建模→构建）、错误处理、JSON 输出 | 结构化 JSON |
-| **SDK** | 开发者（Python 代码） | 1:1 映射 ADP REST API、类型安全、参数转换 | Pydantic 模型 |
+| **SDK** | 开发者（Python 代码） | 1:1 映射 KWeaver REST API、类型安全、参数转换 | Pydantic 模型 |
 | **HTTP** | 内部 | 传输、认证注入、重试、日志脱敏 | httpx.Response |
 
 **设计原则：**
@@ -45,7 +45,7 @@ KWeaver (ADP) 平台提供了知识网络构建、语义搜索、Decision Agent 
 ## 前置条件
 
 1. **Python >= 3.10**
-2. **ADP 平台账号**
+2. **KWeaver 平台账号**
 3. 安装：
 
 ```bash
@@ -59,8 +59,8 @@ pip install kweaver-sdk[cli]    # CLI + SDK
 ### 方式 A（推荐）：CLI 登录
 
 ```bash
-kweaver auth login https://your-adp-instance.com
-kweaver auth login https://your-adp-instance.com --alias prod  # 设别名
+kweaver auth login https://your-kweaver-instance.com
+kweaver auth login https://your-kweaver-instance.com --alias prod  # 设别名
 ```
 
 登录后凭据存储在 `~/.kweaver/`，所有命令自动使用。与 kweaverc (TypeScript CLI) 共享凭据。
@@ -68,12 +68,12 @@ kweaver auth login https://your-adp-instance.com --alias prod  # 设别名
 ### 方式 B：环境变量
 
 ```bash
-export ADP_BASE_URL="https://your-adp-instance.com"
-export ADP_BUSINESS_DOMAIN="bd_public"
-export ADP_TOKEN="Bearer ory_at_xxxxx"    # 或 ADP_USERNAME + ADP_PASSWORD
+export KWEAVER_BASE_URL="https://your-kweaver-instance.com"
+export KWEAVER_BUSINESS_DOMAIN="bd_public"
+export KWEAVER_TOKEN="Bearer ory_at_xxxxx"    # 或 KWEAVER_USERNAME + KWEAVER_PASSWORD
 ```
 
-> **注意**: `ADP_BUSINESS_DOMAIN` 是必填项。不传或传错会导致 API 返回空结果或 Bad Request。
+> **注意**: `KWEAVER_BUSINESS_DOMAIN` 是必填项。不传或传错会导致 API 返回空结果或 Bad Request。
 
 ---
 
@@ -163,9 +163,9 @@ kweaver call /api/test -X POST -d '{"key":"val"}'
 CLI 之外，也可以直接使用 Python SDK 进行程序化操作：
 
 ```python
-from kweaver import ADPClient, ConfigAuth
+from kweaver import KWeaverClient, ConfigAuth
 
-client = ADPClient(auth=ConfigAuth(), business_domain="bd_public")
+client = KWeaverClient(auth=ConfigAuth(), business_domain="bd_public")
 
 # 资源层 API
 kns = client.knowledge_networks.list()
@@ -195,7 +195,7 @@ pip install kweaver-sdk[cli]
 推荐先用 CLI 登录：
 
 ```bash
-kweaver auth login https://your-adp-instance.com
+kweaver auth login https://your-kweaver-instance.com
 ```
 
 ### Claude Code（本地开发）
@@ -208,7 +208,7 @@ kweaver auth login https://your-adp-instance.com
 # 单元测试
 pytest
 
-# E2E 测试（需要 ADP 环境）
+# E2E 测试（需要 KWeaver 环境）
 pytest tests/e2e/ --run-destructive
 ```
 

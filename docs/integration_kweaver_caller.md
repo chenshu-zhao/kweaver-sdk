@@ -7,7 +7,7 @@
 | **kweaver-sdk** | Python | CLI-first SDK，CLI 命令行 + Resources API（v0.6 起 Skills 已删除） |
 | **kweaver-caller** | TypeScript | CLI 工具，覆盖 OAuth2 多平台管理、Agent 对话、BKN CRUD、本体查询、Context-Loader MCP |
 
-目标：将 kweaver-caller 中 SDK 尚未覆盖的能力整合进 kweaver-sdk，使 Python SDK 成为完整的 ADP 客户端。
+目标：将 kweaver-caller 中 SDK 尚未覆盖的能力整合进 kweaver-sdk，使 Python SDK 成为完整的 KWeaver 客户端。
 
 ---
 
@@ -100,11 +100,11 @@ class ActionExecution(BaseModel):
     def cancel(self) -> None: ...
 ```
 
-#### 3.1.3 挂载到 ADPClient
+#### 3.1.3 挂载到 KWeaverClient
 
 ```python
 # _client.py
-class ADPClient:
+class KWeaverClient:
     @property
     def action_types(self) -> ActionTypesResource: ...
 ```
@@ -226,7 +226,7 @@ OAuth2BrowserAuth(url).login() ──┘        │
                                           ▼
                                ConfigAuth() ──▶ auth_headers()
                                           ▼
-                               ADPClient / Skill / CLI 均可使用
+                               KWeaverClient / Skill / CLI 均可使用
 ```
 
 三条写入路径 + 一个读取入口。用户用任一工具登录后，所有工具直接可用。
@@ -296,7 +296,7 @@ kweaver call <url> [-X METHOD] [-H HEADER] [-d BODY]   # 通用 API 调用
 |------|------|------|
 | 1 | ActionType / ActionExecution 类型 | `types.py` |
 | 2 | ActionTypesResource 实现 | `resources/action_types.py` |
-| 3 | 挂载到 ADPClient | `_client.py` |
+| 3 | 挂载到 KWeaverClient | `_client.py` |
 | 4 | ExecuteActionSkill | `skills/execute_action.py` |
 | 5 | 单元测试 | `tests/unit/test_action_types.py` |
 | 6 | E2E 测试 | `tests/e2e/test_action_e2e.py` |
@@ -340,7 +340,7 @@ kweaver call <url> [-X METHOD] [-H HEADER] [-d BODY]   # 通用 API 调用
 │  kweaver 命令行，多步编排、JSON 输出                       │
 ├──────────────────────────────────────────────────────────┤
 │  SDK 层（面向开发者）                                      │
-│  Resources API，1:1 映射 ADP 概念                         │
+│  Resources API，1:1 映射 KWeaver 概念                         │
 ├──────────────────────────────────────────────────────────┤
 │  HTTP 层 + Config 层                                      │
 │  httpx / 认证 / 重试 / ~/.kweaver/ 凭据管理                │

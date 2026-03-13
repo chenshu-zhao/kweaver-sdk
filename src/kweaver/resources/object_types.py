@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from kweaver._errors import ADPError
+from kweaver._errors import KWeaverError
 from kweaver.types import DataProperty, ObjectType, ObjectTypeStatus, Property
 
 logger = logging.getLogger(__name__)
@@ -61,7 +61,7 @@ class ObjectTypesResource:
             )
             items = data if isinstance(data, list) else data.get("entries", data.get("data", [data]))
             return _parse_object_type(items[0], kn_id)
-        except ADPError as exc:
+        except KWeaverError as exc:
             if "Existed" in (exc.error_code or "") or "已存在" in (exc.message or ""):
                 existing = self.list(kn_id)
                 logger.debug(

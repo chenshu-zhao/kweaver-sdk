@@ -8,7 +8,7 @@ from typing import Any, Callable
 import httpx
 import pytest
 
-from kweaver import ADPClient
+from kweaver import KWeaverClient
 
 
 # ---------------------------------------------------------------------------
@@ -47,9 +47,9 @@ def make_mock_transport(
 def make_client(
     handler: Callable[[httpx.Request], httpx.Response],
     capture: RequestCapture | None = None,
-) -> ADPClient:
+) -> KWeaverClient:
     transport = make_mock_transport(handler, capture)
-    return ADPClient(base_url="https://mock", token="test-token", transport=transport)
+    return KWeaverClient(base_url="https://mock", token="test-token", transport=transport)
 
 
 @pytest.fixture

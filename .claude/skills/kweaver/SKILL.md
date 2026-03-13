@@ -1,20 +1,20 @@
 ---
 name: kweaver
 description: >-
-  操作 ADP 知识网络与 Decision Agent — 连接数据库、构建知识网络、查询 Schema/实例、
+  操作 KWeaver 知识网络与 Decision Agent — 连接数据库、构建知识网络、查询 Schema/实例、
   语义搜索、执行 Action、列举 Agent、与 Agent 对话。
   当用户提到"知识网络"、"知识图谱"、"连接数据库并建模"、"查询对象类"、
   "执行 Action"、"有哪些 Agent"、"跟 Agent 对话"等意图时自动使用。
 allowed-tools: Bash(python *), Bash(${KWEAVER_PYTHON:-python} *), Bash(kweaver *)
 argument-hint: [自然语言指令]
 requires:
-  env: [ADP_BASE_URL, ADP_BUSINESS_DOMAIN, ADP_TOKEN, ADP_USERNAME, ADP_PASSWORD]
+  env: [KWEAVER_BASE_URL, KWEAVER_BUSINESS_DOMAIN, KWEAVER_TOKEN, KWEAVER_USERNAME, KWEAVER_PASSWORD]
   bins: [python]
 ---
 
 # KWeaver CLI
 
-KWeaver/ADP 平台的命令行工具，覆盖认证、数据源管理、知识网络管理与查询、Action 执行、Agent 对话六大能力。
+KWeaver 平台的命令行工具，覆盖认证、数据源管理、知识网络管理与查询、Action 执行、Agent 对话六大能力。
 
 ## 安装
 
@@ -43,10 +43,10 @@ pip install -e "/path/to/kweaver-sdk[cli]"
 CLI 按以下顺序尝试认证（无需用户干预）：
 
 1. **ConfigAuth**（推荐）— 读取 `~/.kweaver/` 凭据（与 kweaverc CLI 共享），自动刷新 Token
-2. **PasswordAuth** — 通过 `ADP_USERNAME` + `ADP_PASSWORD` 环境变量
-3. **TokenAuth** — 通过 `ADP_TOKEN` 环境变量
+2. **PasswordAuth** — 通过 `KWEAVER_USERNAME` + `KWEAVER_PASSWORD` 环境变量
+3. **TokenAuth** — 通过 `KWEAVER_TOKEN` 环境变量
 
-环境变量 `ADP_BASE_URL` 和 `ADP_BUSINESS_DOMAIN` 用于指定平台地址和业务域。
+环境变量 `KWEAVER_BASE_URL` 和 `KWEAVER_BUSINESS_DOMAIN` 用于指定平台地址和业务域。
 
 ---
 

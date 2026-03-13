@@ -4,7 +4,7 @@ import httpx
 import pytest
 
 from kweaver._errors import (
-    ADPError,
+    KWeaverError,
     AuthenticationError,
     AuthorizationError,
     ConflictError,
@@ -61,12 +61,12 @@ def test_500_raises_server_error():
 
 
 def test_unknown_4xx_raises_adp_error():
-    with pytest.raises(ADPError):
+    with pytest.raises(KWeaverError):
         raise_for_status(_response(418))
 
 
 def test_error_repr():
-    e = ADPError("test", status_code=400, error_code="BAD", trace_id="t1")
+    e = KWeaverError("test", status_code=400, error_code="BAD", trace_id="t1")
     r = repr(e)
     assert "400" in r
     assert "BAD" in r

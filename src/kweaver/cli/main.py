@@ -16,7 +16,7 @@ from kweaver.cli.call import call_cmd
 @click.group()
 @click.version_option(package_name="kweaver-sdk")
 def cli() -> None:
-    """KWeaver CLI — manage ADP knowledge networks, agents, and more."""
+    """KWeaver CLI — manage KWeaver knowledge networks, agents, and more."""
 
 
 cli.add_command(auth_group, "auth")

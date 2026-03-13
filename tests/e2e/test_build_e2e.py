@@ -10,20 +10,20 @@ from typing import Any
 
 import pytest
 
-from kweaver import ADPClient
+from kweaver import KWeaverClient
 
 pytestmark = [pytest.mark.e2e, pytest.mark.destructive]
 
 
 def test_dataview_create_from_table(
-    create_datasource, adp_client: ADPClient,
+    create_datasource, kweaver_client: KWeaverClient,
 ):
     """Find the auto-created atomic dataview for a real table."""
     ds = create_datasource(name="e2e_dv_test")
-    tables = adp_client.datasources.list_tables(ds.id)
+    tables = kweaver_client.datasources.list_tables(ds.id)
     assert len(tables) > 0
 
-    dv = adp_client.dataviews.create(
+    dv = kweaver_client.dataviews.create(
         name=f"e2e_dv_{tables[0].name}",
         datasource_id=ds.id,
         table=tables[0].name,
@@ -36,17 +36,17 @@ def test_dataview_create_from_table(
 def test_build_knowledge_network(
     create_datasource,
     create_knowledge_network,
-    adp_client: ADPClient,
+    kweaver_client: KWeaverClient,
 ):
     """Full build: datasource → dataview → KN → object type."""
     # 1. Datasource and table discovery
     ds = create_datasource(name="e2e_build_test")
-    tables = adp_client.datasources.list_tables(ds.id)
+    tables = kweaver_client.datasources.list_tables(ds.id)
     assert len(tables) > 0
     table = tables[0]
 
     # 2. Create dataview
-    dv = adp_client.dataviews.create(
+    dv = kweaver_client.dataviews.create(
         name=f"e2e_build_{table.name}",
         datasource_id=ds.id,
         table=table.name,
@@ -60,7 +60,7 @@ def test_build_knowledge_network(
 
     # 4. Create object type — pick first suitable column as PK
     pk_col = table.columns[0].name
-    ot = adp_client.object_types.create(
+    ot = kweaver_client.object_types.create(
         kn.id,
         name=f"e2e_{table.name}",
         dataview_id=dv.id,
@@ -73,25 +73,25 @@ def test_build_knowledge_network(
 def test_build_with_relation(
     create_datasource,
     create_knowledge_network,
-    adp_client: ADPClient,
+    kweaver_client: KWeaverClient,
 ):
     """Build with two tables and a relation between them."""
     ds = create_datasource(name="e2e_rel_test")
-    tables = adp_client.datasources.list_tables(ds.id)
+    tables = kweaver_client.datasources.list_tables(ds.id)
     if len(tables) < 2:
         pytest.skip("Need at least 2 tables for relation test")
 
     t1, t2 = tables[0], tables[1]
-    dv1 = adp_client.dataviews.create(name=f"e2e_rel_{t1.name}", datasource_id=ds.id, table=t1.name, columns=t1.columns)
-    dv2 = adp_client.dataviews.create(name=f"e2e_rel_{t2.name}", datasource_id=ds.id, table=t2.name, columns=t2.columns)
+    dv1 = kweaver_client.dataviews.create(name=f"e2e_rel_{t1.name}", datasource_id=ds.id, table=t1.name, columns=t1.columns)
+    dv2 = kweaver_client.dataviews.create(name=f"e2e_rel_{t2.name}", datasource_id=ds.id, table=t2.name, columns=t2.columns)
 
     kn = create_knowledge_network(name="e2e_rel_kn")
 
-    ot1 = adp_client.object_types.create(
+    ot1 = kweaver_client.object_types.create(
         kn.id, name=f"e2e_{t1.name}", dataview_id=dv1.id,
         primary_keys=[t1.columns[0].name], display_key=t1.columns[0].name,
     )
-    ot2 = adp_client.object_types.create(
+    ot2 = kweaver_client.object_types.create(
         kn.id, name=f"e2e_{t2.name}", dataview_id=dv2.id,
         primary_keys=[t2.columns[0].name], display_key=t2.columns[0].name,
     )
@@ -99,7 +99,7 @@ def test_build_with_relation(
     assert ot2.id
 
     # Create a direct relation using first column of each
-    rt = adp_client.relation_types.create(
+    rt = kweaver_client.relation_types.create(
         kn.id,
         name=f"e2e_{t1.name}_{t2.name}",
         source_ot_id=ot1.id,

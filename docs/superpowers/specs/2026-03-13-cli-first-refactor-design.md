@@ -5,7 +5,7 @@
 
 ## Problem
 
-Skills (`src/kweaver/skills/`) and CLI (`src/kweaver/cli/`) are two parallel consumers of ADPClient, each duplicating orchestration logic. SKILL.md instructs AI agents to write Python code calling Skill classes, while CLI provides the same capabilities via shell commands. This creates maintenance burden, inconsistent behavior, and a confusing layering.
+Skills (`src/kweaver/skills/`) and CLI (`src/kweaver/cli/`) are two parallel consumers of KWeaverClient, each duplicating orchestration logic. SKILL.md instructs AI agents to write Python code calling Skill classes, while CLI provides the same capabilities via shell commands. This creates maintenance burden, inconsistent behavior, and a confusing layering.
 
 ## Decision
 
@@ -13,13 +13,13 @@ Skills (`src/kweaver/skills/`) and CLI (`src/kweaver/cli/`) are two parallel con
 
 ```
 Before:
-  SKILL.md → Python Skill classes → ADPClient → HTTP API
-  CLI      → Click commands       → ADPClient → HTTP API
+  SKILL.md → Python Skill classes → KWeaverClient → HTTP API
+  CLI      → Click commands       → KWeaverClient → HTTP API
 
 After:
   SKILL.md → kweaver CLI commands (shell)
                     ↓
-  CLI (Click) = sole orchestration layer → ADPClient → HTTP API
+  CLI (Click) = sole orchestration layer → KWeaverClient → HTTP API
 ```
 
 ## New CLI Command Group: `kweaver ds`
@@ -132,7 +132,7 @@ def handle_errors(fn):
             error_exit(f"无权限: {e.message}")
         except NotFoundError as e:
             error_exit(f"未找到: {e.message}")
-        except ADPError as e:
+        except KWeaverError as e:
             error_exit(f"错误: {e.message}")
     return wrapper
 ```

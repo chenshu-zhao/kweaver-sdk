@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "kweaver-sdk"
 version = "0.6.0"
-description = "ADP Python SDK — CLI and client library for knowledge network construction and querying"
+description = "KWeaver Python SDK — CLI and client library for knowledge network construction and querying"
 requires-python = ">=3.10"
 dependencies = [
     "httpx>=0.27",
@@ -33,8 +33,8 @@ packages = ["src/kweaver"]
 testpaths = ["tests"]
 pythonpath = ["."]
 markers = [
-    "e2e: end-to-end tests against a live ADP instance",
-    "destructive: tests that mutate ADP state (create/build/delete KN)",
+    "e2e: end-to-end tests against a live KWeaver instance",
+    "destructive: tests that mutate KWeaver state (create/build/delete KN)",
 ]
 # Default: only run unit + integration; e2e requires explicit opt-in
 addopts = "--ignore=tests/e2e"

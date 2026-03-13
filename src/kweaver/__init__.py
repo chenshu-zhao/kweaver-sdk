@@ -1,9 +1,9 @@
-"""KWeaver SDK — CLI and client library for ADP knowledge networks."""
+"""KWeaver SDK — CLI and client library for KWeaver knowledge networks."""
 
 from kweaver._auth import ConfigAuth, OAuth2Auth, OAuth2BrowserAuth, PasswordAuth, TokenAuth
-from kweaver._client import ADPClient
+from kweaver._client import KWeaverClient
 from kweaver._errors import (
-    ADPError,
+    KWeaverError,
     AuthenticationError,
     AuthorizationError,
     ConflictError,
@@ -14,13 +14,13 @@ from kweaver._errors import (
 )
 
 __all__ = [
-    "ADPClient",
+    "KWeaverClient",
     "TokenAuth",
     "PasswordAuth",
     "OAuth2Auth",
     "ConfigAuth",
     "OAuth2BrowserAuth",
-    "ADPError",
+    "KWeaverError",
     "AuthenticationError",
     "AuthorizationError",
     "ConflictError",

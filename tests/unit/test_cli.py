@@ -377,8 +377,8 @@ def test_handle_errors_adp_error(runner):
     @cli.command("_test_error")
     @handle_errors
     def _test_error():
-        from kweaver._errors import ADPError
-        raise ADPError("something broke", status_code=500)
+        from kweaver._errors import KWeaverError
+        raise KWeaverError("something broke", status_code=500)
 
     result = runner.invoke(cli, ["_test_error"])
     assert result.exit_code != 0

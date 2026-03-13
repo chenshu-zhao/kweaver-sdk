@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 logger = logging.getLogger(__name__)
 
-from kweaver._errors import ADPError
+from kweaver._errors import KWeaverError
 from kweaver.types import DataView, ViewField
 
 if TYPE_CHECKING:
@@ -106,7 +106,7 @@ class DataViewsResource:
                     data = self._http.post("/api/mdl-data-model/v1/data-views", json=body)
                     created_id = _extract_view_id(data) or view_id
                     return self.get(created_id)
-                except ADPError as exc:
+                except KWeaverError as exc:
                     if "Existed" not in (exc.error_code or ""):
                         raise
                     if attempt == 2:

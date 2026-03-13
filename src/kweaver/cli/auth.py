@@ -18,7 +18,7 @@ def auth_group() -> None:
 @click.option("--alias", default=None, help="Short alias for this platform.")
 @click.option("--port", default=9010, help="Local callback port.")
 def login(url: str, alias: str | None, port: int) -> None:
-    """Login to an ADP platform via browser OAuth2 flow."""
+    """Login to a KWeaver platform via browser OAuth2 flow."""
     url = url.rstrip("/")
     click.echo(f"Logging in to {url} ...")
 

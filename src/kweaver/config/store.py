@@ -41,7 +41,7 @@ class PlatformInfo:
 
 
 class PlatformStore:
-    """Manage multi-platform ADP credentials in ~/.kweaver/."""
+    """Manage multi-platform KWeaver credentials in ~/.kweaver/."""
 
     def __init__(self, root: Path | None = None) -> None:
         self._root = root or _DEFAULT_ROOT

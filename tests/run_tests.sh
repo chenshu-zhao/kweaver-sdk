@@ -9,7 +9,7 @@
 #   tests/run_tests.sh integration                       # Skill orchestration tests
 #   tests/run_tests.sh e2e                               # Read-only E2E tests
 #   tests/run_tests.sh e2e --run-destructive             # Including build/delete tests
-#   tests/run_tests.sh e2e --e2e-base-url https://...    # Override ADP URL
+#   tests/run_tests.sh e2e --e2e-base-url https://...    # Override KWeaver URL
 #   tests/run_tests.sh all -v                            # Verbose unit + integration
 
 set -e

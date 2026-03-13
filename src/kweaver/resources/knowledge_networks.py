@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from kweaver._errors import ADPError
+from kweaver._errors import KWeaverError
 from kweaver.types import BuildJob, BuildStatus, KNStatistics, KnowledgeNetwork
 
 logger = logging.getLogger(__name__)
@@ -35,7 +35,7 @@ class KnowledgeNetworksResource:
                 "/api/ontology-manager/v1/knowledge-networks", json=body
             )
             return _parse_kn(data)
-        except ADPError as exc:
+        except KWeaverError as exc:
             if "Existed" in (exc.error_code or ""):
                 # KN with this name already exists — find and return it
                 existing = self.list(name=name)
@@ -81,7 +81,7 @@ class KnowledgeNetworksResource:
                 "/api/agent-retrieval/in/v1/kn/full_build_ontology",
                 json={"kn_id": id},
             )
-        except ADPError as exc:
+        except KWeaverError as exc:
             if exc.status_code == 404:
                 # Fallback: call ontology-manager directly
                 try:
@@ -89,7 +89,7 @@ class KnowledgeNetworksResource:
                         f"/api/ontology-manager/in/v1/knowledge-networks/{id}/jobs",
                         json={"name": f"sdk_build_{id[:8]}", "job_type": "full"},
                     )
-                except ADPError as exc2:
+                except KWeaverError as exc2:
                     if exc2.status_code == 404:
                         logger.warning("No build endpoint available, skipping build")
                     else:
@@ -106,7 +106,7 @@ class KnowledgeNetworksResource:
                 "/api/agent-retrieval/in/v1/kn/full_ontology_building_status",
                 params={"kn_id": id},
             )
-        except ADPError as exc:
+        except KWeaverError as exc:
             if exc.status_code == 404:
                 # Fallback: check ontology-manager jobs
                 try:
@@ -114,7 +114,7 @@ class KnowledgeNetworksResource:
                         f"/api/ontology-manager/in/v1/knowledge-networks/{id}/jobs",
                         params={"limit": 1, "direction": "desc"},
                     )
-                except ADPError as exc2:
+                except KWeaverError as exc2:
                     if exc2.status_code == 404:
                         return BuildStatus(state="completed")
                     raise

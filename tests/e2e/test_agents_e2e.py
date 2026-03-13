@@ -7,53 +7,53 @@ from __future__ import annotations
 
 import pytest
 
-from kweaver import ADPClient
+from kweaver import KWeaverClient
 
 pytestmark = pytest.mark.e2e
 
 
-def test_list_agents(adp_client: ADPClient):
+def test_list_agents(kweaver_client: KWeaverClient):
     """List agents should return without error."""
-    agents = adp_client.agents.list()
+    agents = kweaver_client.agents.list()
     assert isinstance(agents, list)
 
 
-def test_list_agents_published(adp_client: ADPClient):
+def test_list_agents_published(kweaver_client: KWeaverClient):
     """Published filter should only return published agents."""
-    agents = adp_client.agents.list(status="published")
+    agents = kweaver_client.agents.list(status="published")
     assert isinstance(agents, list)
     for a in agents:
         assert a.status == "published"
 
 
 @pytest.fixture(scope="module")
-def any_agent(adp_client: ADPClient):
+def any_agent(kweaver_client: KWeaverClient):
     """Find any agent for tests (published or not)."""
-    agents = adp_client.agents.list()
+    agents = kweaver_client.agents.list()
     if not agents:
         pytest.skip("No agents found")
     return agents[0]
 
 
 @pytest.fixture(scope="module")
-def published_agent(adp_client: ADPClient):
+def published_agent(kweaver_client: KWeaverClient):
     """Find a published agent for tests."""
-    agents = adp_client.agents.list(status="published")
+    agents = kweaver_client.agents.list(status="published")
     if not agents:
         pytest.skip("No published agents found")
     return agents[0]
 
 
-def test_get_agent(adp_client: ADPClient, any_agent):
+def test_get_agent(kweaver_client: KWeaverClient, any_agent):
     """Get agent detail should return full config."""
-    agent = adp_client.agents.get(any_agent.id)
+    agent = kweaver_client.agents.get(any_agent.id)
     assert agent.id == any_agent.id
     assert agent.name == any_agent.name
 
 
-def test_agent_has_fields(adp_client: ADPClient, any_agent):
+def test_agent_has_fields(kweaver_client: KWeaverClient, any_agent):
     """Agent detail should contain key fields from agent-factory."""
-    agent = adp_client.agents.get(any_agent.id)
+    agent = kweaver_client.agents.get(any_agent.id)
     assert agent.id
     assert agent.name
     assert agent.status in ("published", "draft")
@@ -62,7 +62,7 @@ def test_agent_has_fields(adp_client: ADPClient, any_agent):
 
 
 @pytest.mark.destructive
-def test_conversation_flow(adp_client: ADPClient, published_agent):
+def test_conversation_flow(kweaver_client: KWeaverClient, published_agent):
     """Create conversation, send message, verify response.
 
     Note: if the agent has broken tool/knowledge config, the backend
@@ -71,11 +71,11 @@ def test_conversation_flow(adp_client: ADPClient, published_agent):
     """
     from kweaver._errors import ServerError
 
-    conv = adp_client.conversations.create(published_agent.id)
+    conv = kweaver_client.conversations.create(published_agent.id)
     assert conv.agent_id == published_agent.id
 
     try:
-        reply = adp_client.conversations.send_message(
+        reply = kweaver_client.conversations.send_message(
             conv.id,
             content="你好",
             agent_id=published_agent.id,

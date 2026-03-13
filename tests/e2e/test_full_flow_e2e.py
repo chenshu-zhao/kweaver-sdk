@@ -10,7 +10,7 @@ from typing import Any
 
 import pytest
 
-from kweaver import ADPClient
+from kweaver import KWeaverClient
 from kweaver.cli.main import cli
 
 pytestmark = [pytest.mark.e2e, pytest.mark.destructive]
@@ -33,15 +33,15 @@ def _extract_json(output: str) -> Any:
     raise ValueError(f"No JSON found in output: {output[:200]}")
 
 
-def test_cli_full_lifecycle(adp_client: ADPClient, db_config: dict[str, Any], cli_runner):
+def test_cli_full_lifecycle(kweaver_client: KWeaverClient, db_config: dict[str, Any], cli_runner):
     """End-to-end: ds connect -> kn create -> query search."""
     runner = cli_runner
     kn_name = "e2e_full_flow_kn"
     # Clean up stale KN from previous runs
-    for kn in adp_client.knowledge_networks.list(name=kn_name):
+    for kn in kweaver_client.knowledge_networks.list(name=kn_name):
         if kn.name == kn_name:
             try:
-                adp_client.knowledge_networks.delete(kn.id)
+                kweaver_client.knowledge_networks.delete(kn.id)
             except Exception:
                 pass
 
@@ -84,10 +84,10 @@ def test_cli_full_lifecycle(adp_client: ADPClient, db_config: dict[str, Any], cl
     finally:
         if kn_id:
             try:
-                adp_client.knowledge_networks.delete(kn_id)
+                kweaver_client.knowledge_networks.delete(kn_id)
             except Exception:
                 pass
         try:
-            adp_client.datasources.delete(ds_id)
+            kweaver_client.datasources.delete(ds_id)
         except Exception:
             pass

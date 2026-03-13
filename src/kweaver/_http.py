@@ -36,7 +36,7 @@ def _sanitize_body(body: Any) -> Any:
 
 
 class HttpClient:
-    """Low-level HTTP client wrapping httpx with ADP-specific concerns."""
+    """Low-level HTTP client wrapping httpx with KWeaver-specific concerns."""
 
     def __init__(
         self,

@@ -31,14 +31,14 @@ Add to `tests/unit/test_cli.py`:
 
 
 def test_handle_errors_adp_error(runner):
-    """handle_errors should catch ADPError and exit with error message."""
+    """handle_errors should catch KWeaverError and exit with error message."""
     from kweaver.cli._helpers import handle_errors
 
     @cli.command("_test_error")
     @handle_errors
     def _test_error():
-        from kweaver._errors import ADPError
-        raise ADPError("something broke", status_code=500)
+        from kweaver._errors import KWeaverError
+        raise KWeaverError("something broke", status_code=500)
 
     result = runner.invoke(cli, ["_test_error"])
     assert result.exit_code != 0
@@ -72,7 +72,7 @@ Add to `src/kweaver/cli/_helpers.py`:
 ```python
 from functools import wraps
 
-from kweaver._errors import ADPError, AuthenticationError, AuthorizationError, NotFoundError
+from kweaver._errors import KWeaverError, AuthenticationError, AuthorizationError, NotFoundError
 
 
 def handle_errors(fn):
@@ -87,7 +87,7 @@ def handle_errors(fn):
             error_exit(f"无权限: {e.message}")
         except NotFoundError as e:
             error_exit(f"未找到: {e.message}")
-        except ADPError as e:
+        except KWeaverError as e:
             error_exit(f"错误: {e.message}")
     return wrapper
 ```
@@ -1264,7 +1264,7 @@ from typing import Any
 import pytest
 from click.testing import CliRunner
 
-from kweaver import ADPClient
+from kweaver import KWeaverClient
 from kweaver.cli.main import cli
 
 pytestmark = [pytest.mark.e2e, pytest.mark.destructive]
@@ -1282,7 +1282,7 @@ def _invoke(runner: CliRunner, args: list[str]) -> dict[str, Any]:
     return json.loads(result.output)
 
 
-def test_cli_full_lifecycle(adp_client: ADPClient, db_config: dict[str, Any], cli_runner):
+def test_cli_full_lifecycle(adp_client: KWeaverClient, db_config: dict[str, Any], cli_runner):
     """End-to-end: ds connect -> kn create -> query search."""
     runner = cli_runner
 
@@ -1352,11 +1352,11 @@ def test_cli_full_lifecycle(adp_client: ADPClient, db_config: dict[str, Any], cl
 ```python
 @pytest.fixture
 def cli_runner(e2e_env):
-    env = {"ADP_BASE_URL": e2e_env["base_url"]}
+    env = {"KWEAVER_BASE_URL": e2e_env["base_url"]}
     if e2e_env.get("token"):
-        env["ADP_TOKEN"] = e2e_env["token"]
+        env["KWEAVER_TOKEN"] = e2e_env["token"]
     if e2e_env.get("business_domain"):
-        env["ADP_BUSINESS_DOMAIN"] = e2e_env["business_domain"]
+        env["KWEAVER_BUSINESS_DOMAIN"] = e2e_env["business_domain"]
     return CliRunner(env=env)
 ```
 
@@ -1365,7 +1365,7 @@ Use `cli_runner` for CLI commands and `adp_client` for setup/teardown (KN cleanu
 - [ ] **Step 2: Run test to verify it works**
 
 Run: `python -m pytest tests/e2e/test_full_flow_e2e.py -v -m e2e --run-destructive`
-Expected: PASS (against a live ADP instance with database configured)
+Expected: PASS (against a live KWeaver instance with database configured)
 
 - [ ] **Step 3: Commit**
 
@@ -1398,7 +1398,7 @@ import json
 
 import pytest
 
-from kweaver import ADPClient
+from kweaver import KWeaverClient
 from kweaver.cli.main import cli
 
 pytestmark = pytest.mark.e2e
@@ -1416,7 +1416,7 @@ def test_kn_list_discovers_knowledge_networks(cli_runner):
         assert "name" in kn
 
 
-def test_kn_export_returns_structure(adp_client: ADPClient, cli_runner):
+def test_kn_export_returns_structure(adp_client: KWeaverClient, cli_runner):
     """kn export should return object types and relation types."""
     kns = adp_client.knowledge_networks.list()
     if not kns:
@@ -1429,7 +1429,7 @@ def test_kn_export_returns_structure(adp_client: ADPClient, cli_runner):
     assert isinstance(data, dict)
 
 
-def test_query_instances_returns_data(adp_client: ADPClient, cli_runner):
+def test_query_instances_returns_data(adp_client: KWeaverClient, cli_runner):
     """query instances should return data rows."""
     kns = adp_client.knowledge_networks.list()
     if not kns:
@@ -1527,7 +1527,7 @@ version = "0.6.0"
 
 Also update the description to remove "skills" reference:
 ```toml
-description = "ADP Python SDK — CLI and client library for knowledge network construction and querying"
+description = "KWeaver Python SDK — CLI and client library for knowledge network construction and querying"
 ```
 
 Also update `addopts` in pytest config to remove integration test handling (they no longer exist):
@@ -1550,14 +1550,14 @@ def test_cli_version(runner):
 
 In `src/kweaver/__init__.py`, update the docstring from:
 ```python
-"""KWeaver SDK — Agent-oriented skills for ADP knowledge networks."""
+"""KWeaver SDK — Agent-oriented skills for KWeaver knowledge networks."""
 ```
 to:
 ```python
-"""KWeaver SDK — CLI and client library for ADP knowledge networks."""
+"""KWeaver SDK — CLI and client library for KWeaver knowledge networks."""
 ```
 
-Verify no skill exports exist (confirmed: only ADPClient, auth, and error classes are exported).
+Verify no skill exports exist (confirmed: only KWeaverClient, auth, and error classes are exported).
 
 - [ ] **Step 4: Run full test suite**
 

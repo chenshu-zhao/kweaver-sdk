@@ -6,7 +6,7 @@ import time
 from typing import TYPE_CHECKING, Any
 
 from kweaver._crypto import encrypt_password
-from kweaver._errors import ADPError
+from kweaver._errors import KWeaverError
 from kweaver.types import Column, DataSource, Table
 
 if TYPE_CHECKING:
@@ -86,7 +86,7 @@ class DataSourcesResource:
         try:
             data = self._http.post("/api/data-connection/v1/datasource", json=body)
             return _parse_datasource(data)
-        except ADPError as exc:
+        except KWeaverError as exc:
             if "已存在" in (exc.message or ""):
                 existing = self.list(keyword=name)
                 for ds in existing:

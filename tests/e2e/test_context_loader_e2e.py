@@ -9,7 +9,7 @@ import json
 
 import pytest
 
-from kweaver import ADPClient
+from kweaver import KWeaverClient
 from kweaver.cli.main import cli
 
 pytestmark = pytest.mark.e2e
@@ -27,9 +27,9 @@ def test_kn_list_discovers_knowledge_networks(cli_runner):
         assert "name" in kn
 
 
-def test_kn_export_returns_structure(adp_client: ADPClient, cli_runner):
+def test_kn_export_returns_structure(kweaver_client: KWeaverClient, cli_runner):
     """kn export should return object types and relation types."""
-    kns = adp_client.knowledge_networks.list()
+    kns = kweaver_client.knowledge_networks.list()
     if not kns:
         pytest.skip("No knowledge networks available")
     result = cli_runner.invoke(cli, ["kn", "export", kns[0].id])
@@ -38,13 +38,13 @@ def test_kn_export_returns_structure(adp_client: ADPClient, cli_runner):
     assert isinstance(data, dict)
 
 
-def test_query_instances_returns_data(adp_client: ADPClient, cli_runner):
+def test_query_instances_returns_data(kweaver_client: KWeaverClient, cli_runner):
     """query instances should return data rows."""
-    kns = adp_client.knowledge_networks.list()
+    kns = kweaver_client.knowledge_networks.list()
     if not kns:
         pytest.skip("No knowledge networks available")
     kn = kns[0]
-    ots = adp_client.object_types.list(kn.id)
+    ots = kweaver_client.object_types.list(kn.id)
     if not ots:
         pytest.skip("No object types available")
     ot = ots[0]

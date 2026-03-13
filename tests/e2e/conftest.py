@@ -1,8 +1,8 @@
-"""E2E test configuration for KWeaver SDK against a real ADP environment.
+"""E2E test configuration for KWeaver SDK against a real KWeaver environment.
 
 Follows the Alfred testing pattern:
   - pytest CLI options for environment selection
-  - Environment registry for multiple ADP deployments
+  - Environment registry for multiple KWeaver deployments
   - Session-scoped fixtures for expensive setup (client, datasource)
   - Destructive marker for state-mutating tests (build/delete KN)
   - Factory fixtures for common operations
@@ -19,7 +19,7 @@ import pytest
 
 from click.testing import CliRunner
 
-from kweaver import ADPClient, PasswordAuth
+from kweaver import KWeaverClient, PasswordAuth
 
 # ---------------------------------------------------------------------------
 # Auto-load secrets from ~/.env.secrets (same pattern as Alfred)
@@ -58,18 +58,18 @@ _load_env_secrets()
 
 E2E_ENV: dict[str, dict[str, str]] = {
     "dev": {
-        "base_url": os.getenv("ADP_BASE_URL", ""),
-        "token": os.getenv("ADP_TOKEN", ""),
-        "account_id": os.getenv("ADP_ACCOUNT_ID", "test"),
-        "business_domain": os.getenv("ADP_BUSINESS_DOMAIN", ""),
+        "base_url": os.getenv("KWEAVER_BASE_URL", ""),
+        "token": os.getenv("KWEAVER_TOKEN", ""),
+        "account_id": os.getenv("KWEAVER_ACCOUNT_ID", "test"),
+        "business_domain": os.getenv("KWEAVER_BUSINESS_DOMAIN", ""),
         # Database credentials for datasource tests
-        "db_type": os.getenv("ADP_TEST_DB_TYPE", "mysql"),
-        "db_host": os.getenv("ADP_TEST_DB_HOST", ""),
-        "db_port": os.getenv("ADP_TEST_DB_PORT", "3306"),
-        "db_name": os.getenv("ADP_TEST_DB_NAME", ""),
-        "db_user": os.getenv("ADP_TEST_DB_USER", ""),
-        "db_pass": os.getenv("ADP_TEST_DB_PASS", ""),
-        "db_schema": os.getenv("ADP_TEST_DB_SCHEMA", ""),
+        "db_type": os.getenv("KWEAVER_TEST_DB_TYPE", "mysql"),
+        "db_host": os.getenv("KWEAVER_TEST_DB_HOST", ""),
+        "db_port": os.getenv("KWEAVER_TEST_DB_PORT", "3306"),
+        "db_name": os.getenv("KWEAVER_TEST_DB_NAME", ""),
+        "db_user": os.getenv("KWEAVER_TEST_DB_USER", ""),
+        "db_pass": os.getenv("KWEAVER_TEST_DB_PASS", ""),
+        "db_schema": os.getenv("KWEAVER_TEST_DB_SCHEMA", ""),
     },
 }
 
@@ -88,12 +88,12 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption(
         "--e2e-base-url",
         default=None,
-        help="Override ADP base URL",
+        help="Override KWeaver base URL",
     )
     parser.addoption(
         "--e2e-token",
         default=None,
-        help="Override ADP bearer token",
+        help="Override KWeaver bearer token",
     )
     parser.addoption(
         "--run-destructive",
@@ -106,7 +106,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line(
         "markers",
-        "destructive: marks tests that mutate ADP state (create/build/delete KN)",
+        "destructive: marks tests that mutate KWeaver state (create/build/delete KN)",
     )
 
 
@@ -146,11 +146,11 @@ def e2e_env(request: pytest.FixtureRequest) -> dict[str, str]:
         env_cfg["token"] = token_override
 
     if not env_cfg.get("base_url"):
-        pytest.skip("E2E environment not available: ADP_BASE_URL not set")
+        pytest.skip("E2E environment not available: KWEAVER_BASE_URL not set")
 
     # Auto-refresh token if credentials are available
-    username = os.getenv("ADP_USERNAME", "")
-    password = os.getenv("ADP_PASSWORD", "")
+    username = os.getenv("KWEAVER_USERNAME", "")
+    password = os.getenv("KWEAVER_PASSWORD", "")
     if username and password:
         try:
             auth = PasswordAuth(env_cfg["base_url"], username, password)
@@ -160,27 +160,27 @@ def e2e_env(request: pytest.FixtureRequest) -> dict[str, str]:
         except Exception as exc:
             # Fall back to static token if auto-login fails
             if not env_cfg.get("token"):
-                pytest.skip(f"Token refresh failed and no static ADP_TOKEN: {exc}")
+                pytest.skip(f"Token refresh failed and no static KWEAVER_TOKEN: {exc}")
     elif not env_cfg.get("token"):
-        pytest.skip("E2E environment not available: ADP_TOKEN not set and no ADP_USERNAME/ADP_PASSWORD")
+        pytest.skip("E2E environment not available: KWEAVER_TOKEN not set and no KWEAVER_USERNAME/KWEAVER_PASSWORD")
 
     return env_cfg
 
 
 @pytest.fixture(scope="session")
-def adp_client(e2e_env: dict[str, str]) -> ADPClient:
-    """Session-scoped ADPClient connected to the E2E environment."""
+def kweaver_client(e2e_env: dict[str, str]) -> KWeaverClient:
+    """Session-scoped KWeaverClient connected to the E2E environment."""
     # Prefer PasswordAuth (auto-refresh) over static token
     auth = e2e_env.get("_auth")
     if auth:
-        client = ADPClient(
+        client = KWeaverClient(
             base_url=e2e_env["base_url"],
             auth=auth,
             account_id=e2e_env.get("account_id", "test"),
             business_domain=e2e_env.get("business_domain") or None,
         )
     else:
-        client = ADPClient(
+        client = KWeaverClient(
             base_url=e2e_env["base_url"],
             token=e2e_env["token"],
             account_id=e2e_env.get("account_id", "test"),
@@ -197,7 +197,7 @@ def db_config(e2e_env: dict[str, str]) -> dict[str, Any]:
     Skips if db_host is not configured.
     """
     if not e2e_env.get("db_host"):
-        pytest.skip("E2E database not configured: ADP_TEST_DB_HOST not set")
+        pytest.skip("E2E database not configured: KWEAVER_TEST_DB_HOST not set")
 
     cfg = {
         "type": e2e_env["db_type"],
@@ -218,7 +218,7 @@ def db_config(e2e_env: dict[str, str]) -> dict[str, Any]:
 
 
 @pytest.fixture(scope="session")
-def create_datasource(adp_client: ADPClient, db_config: dict[str, Any]):
+def create_datasource(kweaver_client: KWeaverClient, db_config: dict[str, Any]):
     """Factory: create a datasource and track it for cleanup.
 
     Returns a callable that creates datasources. All created datasources
@@ -228,7 +228,7 @@ def create_datasource(adp_client: ADPClient, db_config: dict[str, Any]):
 
     def _create(name: str = "e2e_test_ds", **overrides: Any) -> Any:
         params = {**db_config, **overrides}
-        ds = adp_client.datasources.create(name=name, **params)
+        ds = kweaver_client.datasources.create(name=name, **params)
         created_ids.append(ds.id)
         return ds
 
@@ -236,13 +236,13 @@ def create_datasource(adp_client: ADPClient, db_config: dict[str, Any]):
 
     for ds_id in reversed(created_ids):
         try:
-            adp_client.datasources.delete(ds_id)
+            kweaver_client.datasources.delete(ds_id)
         except Exception:
             pass
 
 
 @pytest.fixture(scope="session")
-def create_knowledge_network(adp_client: ADPClient):
+def create_knowledge_network(kweaver_client: KWeaverClient):
     """Factory: create a knowledge network and track it for cleanup.
 
     All created KNs are deleted at session teardown (reverse order).
@@ -250,7 +250,7 @@ def create_knowledge_network(adp_client: ADPClient):
     created_ids: list[str] = []
 
     def _create(name: str = "e2e_test_kn", **kwargs: Any) -> Any:
-        kn = adp_client.knowledge_networks.create(name=name, **kwargs)
+        kn = kweaver_client.knowledge_networks.create(name=name, **kwargs)
         created_ids.append(kn.id)
         return kn
 
@@ -258,7 +258,7 @@ def create_knowledge_network(adp_client: ADPClient):
 
     for kn_id in reversed(created_ids):
         try:
-            adp_client.knowledge_networks.delete(kn_id)
+            kweaver_client.knowledge_networks.delete(kn_id)
         except Exception:
             pass
 
@@ -268,9 +268,9 @@ def cli_runner(e2e_env: dict[str, str]) -> CliRunner:
     """CliRunner with auth env vars set."""
     env = {}
     if e2e_env.get("base_url"):
-        env["ADP_BASE_URL"] = e2e_env["base_url"]
+        env["KWEAVER_BASE_URL"] = e2e_env["base_url"]
     if e2e_env.get("token"):
-        env["ADP_TOKEN"] = e2e_env["token"]
+        env["KWEAVER_TOKEN"] = e2e_env["token"]
     if e2e_env.get("business_domain"):
-        env["ADP_BUSINESS_DOMAIN"] = e2e_env["business_domain"]
+        env["KWEAVER_BUSINESS_DOMAIN"] = e2e_env["business_domain"]
     return CliRunner(env=env)

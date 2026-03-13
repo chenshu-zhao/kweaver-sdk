@@ -1,11 +1,11 @@
-"""ADP SDK error hierarchy."""
+"""KWeaver SDK error hierarchy."""
 
 from __future__ import annotations
 
 import httpx
 
 
-class ADPError(Exception):
+class KWeaverError(Exception):
     """Base exception for all SDK errors."""
 
     def __init__(
@@ -33,35 +33,35 @@ class ADPError(Exception):
         return f"{type(self).__name__}({', '.join(parts)})"
 
 
-class AuthenticationError(ADPError):
+class AuthenticationError(KWeaverError):
     """401 — token invalid or expired."""
 
 
-class AuthorizationError(ADPError):
+class AuthorizationError(KWeaverError):
     """403 — insufficient permissions."""
 
 
-class NotFoundError(ADPError):
+class NotFoundError(KWeaverError):
     """404 — resource does not exist."""
 
 
-class ValidationError(ADPError):
+class ValidationError(KWeaverError):
     """400 — bad request parameters."""
 
 
-class ConflictError(ADPError):
+class ConflictError(KWeaverError):
     """409 — resource conflict."""
 
 
-class ServerError(ADPError):
-    """5xx — ADP server-side error."""
+class ServerError(KWeaverError):
+    """5xx — KWeaver server-side error."""
 
 
-class NetworkError(ADPError):
+class NetworkError(KWeaverError):
     """Network unreachable (distinct from builtin ConnectionError)."""
 
 
-_STATUS_MAP: dict[int, type[ADPError]] = {
+_STATUS_MAP: dict[int, type[KWeaverError]] = {
     400: ValidationError,
     401: AuthenticationError,
     403: AuthorizationError,
@@ -71,7 +71,7 @@ _STATUS_MAP: dict[int, type[ADPError]] = {
 
 
 def raise_for_status(response: httpx.Response) -> None:
-    """Raise a typed ADPError if the response indicates failure."""
+    """Raise a typed KWeaverError if the response indicates failure."""
     if response.status_code < 400:
         return
 
@@ -102,7 +102,7 @@ def raise_for_status(response: httpx.Response) -> None:
 
     exc_cls = _STATUS_MAP.get(response.status_code)
     if exc_cls is None:
-        exc_cls = ServerError if response.status_code >= 500 else ADPError
+        exc_cls = ServerError if response.status_code >= 500 else KWeaverError
 
     raise exc_cls(
         message,

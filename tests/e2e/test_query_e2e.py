@@ -8,23 +8,23 @@ from __future__ import annotations
 
 import pytest
 
-from kweaver import ADPClient
+from kweaver import KWeaverClient
 from kweaver.types import Condition
 
 pytestmark = pytest.mark.e2e
 
 
 @pytest.fixture(scope="module")
-def kn_with_data(adp_client: ADPClient):
+def kn_with_data(kweaver_client: KWeaverClient):
     """Find a KN with at least one object type that has indexed data.
 
     Prefer a smaller object type (by doc_count) to avoid server-side
     timeouts on very large tables.
     """
-    kns = adp_client.knowledge_networks.list()
+    kns = kweaver_client.knowledge_networks.list()
     candidates: list[tuple] = []
     for kn in kns:
-        ots = adp_client.object_types.list(kn.id)
+        ots = kweaver_client.object_types.list(kn.id)
         for ot in ots:
             if ot.status and ot.status.doc_count > 0:
                 candidates.append((kn, ot))
@@ -35,37 +35,37 @@ def kn_with_data(adp_client: ADPClient):
     return {"kn": kn, "ot": ot}
 
 
-def test_semantic_search(adp_client: ADPClient, kn_with_data):
+def test_semantic_search(kweaver_client: KWeaverClient, kn_with_data):
     """Semantic search should return concepts."""
     kn = kn_with_data["kn"]
-    result = adp_client.query.semantic_search(
+    result = kweaver_client.query.semantic_search(
         kn_id=kn.id, query=kn_with_data["ot"].name,
     )
     assert result is not None
     assert isinstance(result.concepts, list)
 
 
-def test_instance_query(adp_client: ADPClient, kn_with_data):
+def test_instance_query(kweaver_client: KWeaverClient, kn_with_data):
     """Instance query should return data rows."""
     kn = kn_with_data["kn"]
     ot = kn_with_data["ot"]
-    result = adp_client.query.instances(kn.id, ot.id, limit=5)
+    result = kweaver_client.query.instances(kn.id, ot.id, limit=5)
 
     assert isinstance(result.data, list)
     assert result.total_count is not None
     assert result.total_count > 0
 
 
-def test_instance_query_with_pagination(adp_client: ADPClient, kn_with_data):
+def test_instance_query_with_pagination(kweaver_client: KWeaverClient, kn_with_data):
     """Instance query should support cursor-based pagination."""
     kn = kn_with_data["kn"]
     ot = kn_with_data["ot"]
 
-    page1 = adp_client.query.instances(kn.id, ot.id, limit=2)
+    page1 = kweaver_client.query.instances(kn.id, ot.id, limit=2)
     if page1.search_after is None:
         pytest.skip("Not enough data for pagination test")
 
-    page2 = adp_client.query.instances(
+    page2 = kweaver_client.query.instances(
         kn.id, ot.id, limit=2, search_after=page1.search_after,
     )
     assert isinstance(page2.data, list)
@@ -74,13 +74,13 @@ def test_instance_query_with_pagination(adp_client: ADPClient, kn_with_data):
         assert page1.data != page2.data
 
 
-def test_instance_iter(adp_client: ADPClient, kn_with_data):
+def test_instance_iter(kweaver_client: KWeaverClient, kn_with_data):
     """instances_iter should yield multiple pages."""
     kn = kn_with_data["kn"]
     ot = kn_with_data["ot"]
 
     pages = []
-    for page in adp_client.query.instances_iter(kn.id, ot.id, limit=2):
+    for page in kweaver_client.query.instances_iter(kn.id, ot.id, limit=2):
         pages.append(page)
         if len(pages) >= 3:
             break
