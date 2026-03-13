@@ -19,6 +19,7 @@ def query_group() -> None:
 @click.argument("kn_id")
 @click.argument("query")
 @click.option("--max-concepts", default=10, type=int)
+@handle_errors
 def search(kn_id: str, query: str, max_concepts: int) -> None:
     """Semantic search within a knowledge network."""
     client = make_client()
@@ -31,6 +32,7 @@ def search(kn_id: str, query: str, max_concepts: int) -> None:
 @click.argument("ot_id")
 @click.option("--condition", "condition_json", default=None, help="JSON condition filter.")
 @click.option("--limit", default=20, type=int)
+@handle_errors
 def instances(kn_id: str, ot_id: str, condition_json: str | None, limit: int) -> None:
     """Query object type instances."""
     client = make_client()
@@ -82,6 +84,7 @@ def subgraph(kn_id: str, start_type: str, start_condition: str, path: str) -> No
 @click.argument("kn_id")
 @click.argument("query")
 @click.option("--only-schema", is_flag=True, default=False)
+@handle_errors
 def kn_search(kn_id: str, query: str, only_schema: bool) -> None:
     """Search KN schema (object types, relation types, action types)."""
     client = make_client()

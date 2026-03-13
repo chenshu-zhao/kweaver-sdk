@@ -38,6 +38,7 @@ def kn_group() -> None:
 
 @kn_group.command("list")
 @click.option("--name", default=None, help="Filter by name.")
+@handle_errors
 def list_kns(name: str | None) -> None:
     """List knowledge networks."""
     client = make_client()
@@ -47,6 +48,7 @@ def list_kns(name: str | None) -> None:
 
 @kn_group.command("get")
 @click.argument("kn_id")
+@handle_errors
 def get_kn(kn_id: str) -> None:
     """Get knowledge network details."""
     client = make_client()
@@ -56,6 +58,7 @@ def get_kn(kn_id: str) -> None:
 
 @kn_group.command("export")
 @click.argument("kn_id")
+@handle_errors
 def export_kn(kn_id: str) -> None:
     """Export full knowledge network definition."""
     client = make_client()
@@ -67,6 +70,7 @@ def export_kn(kn_id: str) -> None:
 @click.argument("kn_id")
 @click.option("--wait/--no-wait", default=True, help="Wait for build to complete.")
 @click.option("--timeout", default=300, type=int, help="Wait timeout in seconds.")
+@handle_errors
 def build_kn(kn_id: str, wait: bool, timeout: int) -> None:
     """Trigger a full build for a knowledge network."""
     client = make_client()
@@ -85,6 +89,7 @@ def build_kn(kn_id: str, wait: bool, timeout: int) -> None:
 @kn_group.command("delete")
 @click.argument("kn_id")
 @click.confirmation_option(prompt="Are you sure you want to delete this KN?")
+@handle_errors
 def delete_kn(kn_id: str) -> None:
     """Delete a knowledge network."""
     client = make_client()

@@ -6,13 +6,14 @@ import json
 
 import click
 
-from kweaver.cli._helpers import make_client, pp
+from kweaver.cli._helpers import handle_errors, make_client, pp
 
 
 @click.command("call")
 @click.argument("path")
 @click.option("-X", "--method", default="GET", help="HTTP method.")
 @click.option("-d", "--data", "body", default=None, help="JSON request body.")
+@handle_errors
 def call_cmd(path: str, method: str, body: str | None) -> None:
     """Make an authenticated API call (like curl).
 

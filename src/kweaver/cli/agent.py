@@ -14,6 +14,7 @@ def agent_group() -> None:
 
 @agent_group.command("list")
 @click.option("--keyword", default=None, help="Filter by keyword.")
+@handle_errors
 def list_agents(keyword: str | None) -> None:
     """List published agents."""
     client = make_client()
@@ -29,6 +30,7 @@ def list_agents(keyword: str | None) -> None:
 @click.argument("agent_id")
 @click.option("-m", "--message", required=True, help="Message to send.")
 @click.option("--conversation-id", default=None, help="Continue a conversation.")
+@handle_errors
 def chat(agent_id: str, message: str, conversation_id: str | None) -> None:
     """Chat with a Decision Agent."""
     client = make_client()

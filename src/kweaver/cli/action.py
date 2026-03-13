@@ -17,6 +17,7 @@ def action_group() -> None:
 @action_group.command("query")
 @click.argument("kn_id")
 @click.argument("action_type_id")
+@handle_errors
 def query_action(kn_id: str, action_type_id: str) -> None:
     """Query an action type definition."""
     client = make_client()
@@ -62,6 +63,7 @@ def execute_action(kn_id: str, action_type_id: str | None, action_name: str | No
 @action_group.command("logs")
 @click.argument("kn_id")
 @click.option("--limit", default=20, type=int)
+@handle_errors
 def list_logs(kn_id: str, limit: int) -> None:
     """List action execution logs."""
     client = make_client()
@@ -72,6 +74,7 @@ def list_logs(kn_id: str, limit: int) -> None:
 @action_group.command("log")
 @click.argument("kn_id")
 @click.argument("log_id")
+@handle_errors
 def get_log(kn_id: str, log_id: str) -> None:
     """Get a single execution log."""
     client = make_client()
