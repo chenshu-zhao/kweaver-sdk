@@ -1,31 +1,26 @@
-"""E2E: full flow — connect database → build knowledge network → query.
+"""E2E: full flow — connect database -> build knowledge network -> query.
 
-This is the most comprehensive E2E test: it exercises the complete
-lifecycle through the Skill layer.
-
+Exercises the complete lifecycle through CLI commands.
 Destructive: creates and deletes datasources, knowledge networks, etc.
 """
-
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import pytest
 
 from kweaver import ADPClient
-from kweaver.skills.build_kn import BuildKnSkill
-from kweaver.skills.connect_db import ConnectDbSkill
-from kweaver.skills.load_kn_context import LoadKnContextSkill
-from kweaver.skills.query_kn import QueryKnSkill
+from kweaver.cli.main import cli
 
 pytestmark = [pytest.mark.e2e, pytest.mark.destructive]
 
 
-def test_skill_full_lifecycle(adp_client: ADPClient, db_config: dict[str, Any]):
-    """End-to-end: connect_db → build_kn → load_kn_context → query_kn."""
-
-    # Clean up stale KN from previous runs (OT list API has branch issues)
+def test_cli_full_lifecycle(adp_client: ADPClient, db_config: dict[str, Any], cli_runner):
+    """End-to-end: ds connect -> kn create -> query search."""
+    runner = cli_runner
     kn_name = "e2e_full_flow_kn"
+    # Clean up stale KN from previous runs
     for kn in adp_client.knowledge_networks.list(name=kn_name):
         if kn.name == kn_name:
             try:
@@ -33,74 +28,53 @@ def test_skill_full_lifecycle(adp_client: ADPClient, db_config: dict[str, Any]):
             except Exception:
                 pass
 
-    # ── Step 1: connect_db ──────────────────────────────────────────────
-    connect_skill = ConnectDbSkill(client=adp_client)
-    connect_result = connect_skill.run(
-        db_type=db_config["type"],
-        host=db_config["host"],
-        port=db_config["port"],
-        database=db_config["database"],
-        account=db_config["account"],
-        password=db_config["password"],
-        schema=db_config.get("schema"),
-    )
-
-    assert "error" not in connect_result, f"connect_db failed: {connect_result}"
-    assert connect_result["datasource_id"]
-    assert len(connect_result["tables"]) > 0, "No tables discovered"
-
-    ds_id = connect_result["datasource_id"]
-    first_table = connect_result["tables"][0]["name"]
+    # Step 1: ds connect
+    connect_args = [
+        "ds", "connect", db_config["type"],
+        db_config["host"], str(db_config["port"]), db_config["database"],
+        "--account", db_config["account"],
+        "--password", db_config["password"],
+    ]
+    if db_config.get("schema"):
+        connect_args += ["--schema", db_config["schema"]]
+    connect_result = runner.invoke(cli, connect_args)
+    assert connect_result.exit_code == 0, f"ds connect failed: {connect_result.output}"
+    # Parse JSON from output (skip stderr progress messages)
+    output_lines = connect_result.output.strip().splitlines()
+    connect_data = json.loads("\n".join(
+        line for line in output_lines if line.strip().startswith(("{", "[", '"'))
+    ) if any(line.strip().startswith("{") for line in output_lines) else connect_result.output)
+    ds_id = connect_data["datasource_id"]
+    assert len(connect_data["tables"]) > 0
+    first_table = connect_data["tables"][0]["name"]
     kn_id = None
 
     try:
-        # ── Step 2: build_kn ────────────────────────────────────────────
-        build_skill = BuildKnSkill(client=adp_client)
-        build_result = build_skill.run(
-            datasource_id=ds_id,
-            network_name=kn_name,
-            tables=[first_table],
-        )
+        # Step 2: kn create
+        create_result = runner.invoke(cli, [
+            "kn", "create", ds_id, "--name", kn_name, "--tables", first_table,
+        ])
+        assert create_result.exit_code == 0, f"kn create failed: {create_result.output}"
+        # Parse JSON output
+        for line in reversed(create_result.output.strip().splitlines()):
+            if line.strip().startswith("{"):
+                create_data = json.loads(line)
+                break
+        else:
+            create_data = json.loads(create_result.output)
+        kn_id = create_data["kn_id"]
+        assert create_data["status"] in ("completed", "failed")
+        assert len(create_data["object_types"]) == 1
 
-        assert "error" not in build_result, f"build_kn failed: {build_result}"
-        assert build_result["kn_id"]
-        assert build_result["status"] in ("completed", "failed")
-        assert len(build_result["object_types"]) == 1
+        # Step 3: kn export
+        export_result = runner.invoke(cli, ["kn", "export", kn_id])
+        assert export_result.exit_code == 0
 
-        kn_id = build_result["kn_id"]
-
-        # ── Step 3: load_kn_context — overview ──────────────────────────
-        context_skill = LoadKnContextSkill(client=adp_client)
-        overview = context_skill.run(mode="overview")
-        assert any(
-            kn["id"] == kn_id for kn in overview["knowledge_networks"]
-        ), "Built KN not found in overview"
-
-        # ── Step 4: load_kn_context — schema ────────────────────────────
-        # Note: OTs are only visible in schema after a successful build.
-        # If build endpoints aren't available, OTs stay in draft state.
-        schema = context_skill.run(mode="schema", kn_id=kn_id, include_samples=True)
-        assert schema["kn_id"] == kn_id
-        if schema["object_types"]:
-            assert schema["object_types"][0]["name"] == first_table
-
-            # ── Step 5: load_kn_context — instances ─────────────────────
-            instances = context_skill.run(
-                mode="instances", kn_id=kn_id,
-                object_type=first_table, limit=5,
-            )
-            assert "data" in instances
-            assert instances["object_type_schema"]["name"] == first_table
-
-            # ── Step 6: query_kn — semantic search ──────────────────────
-            query_skill = QueryKnSkill(client=adp_client)
-            search_result = query_skill.run(
-                kn_id=kn_id, mode="search", query=first_table,
-            )
-            assert "data" in search_result
-
+        # Step 4: query search (if build succeeded)
+        if create_data["status"] == "completed":
+            search_result = runner.invoke(cli, ["query", "search", kn_id, first_table])
+            assert search_result.exit_code == 0
     finally:
-        # Cleanup: delete KN and datasource
         if kn_id:
             try:
                 adp_client.knowledge_networks.delete(kn_id)

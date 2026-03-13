@@ -17,6 +17,8 @@ from typing import Any
 
 import pytest
 
+from click.testing import CliRunner
+
 from kweaver import ADPClient, PasswordAuth
 
 # ---------------------------------------------------------------------------
@@ -259,3 +261,16 @@ def create_knowledge_network(adp_client: ADPClient):
             adp_client.knowledge_networks.delete(kn_id)
         except Exception:
             pass
+
+
+@pytest.fixture(scope="session")
+def cli_runner(e2e_env: dict[str, str]) -> CliRunner:
+    """CliRunner with auth env vars set."""
+    env = {}
+    if e2e_env.get("base_url"):
+        env["ADP_BASE_URL"] = e2e_env["base_url"]
+    if e2e_env.get("token"):
+        env["ADP_TOKEN"] = e2e_env["token"]
+    if e2e_env.get("business_domain"):
+        env["ADP_BUSINESS_DOMAIN"] = e2e_env["business_domain"]
+    return CliRunner(env=env)
