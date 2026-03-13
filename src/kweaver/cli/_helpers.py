@@ -19,22 +19,23 @@ def make_client() -> ADPClient:
     """Build an ADPClient from env vars or ~/.kweaver/ config.
 
     Priority:
-      1. ADP_TOKEN + ADP_BASE_URL  → TokenAuth
-      2. ADP_USERNAME + ADP_PASSWORD + ADP_BASE_URL  → PasswordAuth (browser OAuth2)
+      1. ADP_USERNAME + ADP_PASSWORD + ADP_BASE_URL  → PasswordAuth (browser OAuth2, auto-refresh)
+      2. ADP_TOKEN + ADP_BASE_URL  → TokenAuth (static, no auto-refresh)
       3. ~/.kweaver/ config  → ConfigAuth
+    PasswordAuth is preferred over TokenAuth because it auto-refreshes expired tokens.
     """
-    token = os.environ.get("ADP_TOKEN")
     base_url = os.environ.get("ADP_BASE_URL")
     bd = os.environ.get("ADP_BUSINESS_DOMAIN")
-
-    if token and base_url:
-        return ADPClient(base_url=base_url, auth=TokenAuth(token), business_domain=bd)
 
     username = os.environ.get("ADP_USERNAME")
     password = os.environ.get("ADP_PASSWORD")
     if username and password and base_url:
         auth = PasswordAuth(base_url=base_url, username=username, password=password)
         return ADPClient(base_url=base_url, auth=auth, business_domain=bd)
+
+    token = os.environ.get("ADP_TOKEN")
+    if token and base_url:
+        return ADPClient(base_url=base_url, auth=TokenAuth(token), business_domain=bd)
 
     # Default: ConfigAuth reads ~/.kweaver/
     auth = ConfigAuth()
