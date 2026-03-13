@@ -16,6 +16,23 @@ from kweaver.cli.main import cli
 pytestmark = [pytest.mark.e2e, pytest.mark.destructive]
 
 
+def _extract_json(output: str) -> Any:
+    """Extract JSON object/array from CLI output that may contain non-JSON lines."""
+    # Try parsing the entire output first
+    try:
+        return json.loads(output)
+    except json.JSONDecodeError:
+        pass
+    # Find the first { or [ and parse from there
+    for i, ch in enumerate(output):
+        if ch in "{[":
+            try:
+                return json.loads(output[i:])
+            except json.JSONDecodeError:
+                continue
+    raise ValueError(f"No JSON found in output: {output[:200]}")
+
+
 def test_cli_full_lifecycle(adp_client: ADPClient, db_config: dict[str, Any], cli_runner):
     """End-to-end: ds connect -> kn create -> query search."""
     runner = cli_runner
@@ -39,11 +56,7 @@ def test_cli_full_lifecycle(adp_client: ADPClient, db_config: dict[str, Any], cl
         connect_args += ["--schema", db_config["schema"]]
     connect_result = runner.invoke(cli, connect_args)
     assert connect_result.exit_code == 0, f"ds connect failed: {connect_result.output}"
-    # Parse JSON from output (skip stderr progress messages)
-    output_lines = connect_result.output.strip().splitlines()
-    connect_data = json.loads("\n".join(
-        line for line in output_lines if line.strip().startswith(("{", "[", '"'))
-    ) if any(line.strip().startswith("{") for line in output_lines) else connect_result.output)
+    connect_data = _extract_json(connect_result.output)
     ds_id = connect_data["datasource_id"]
     assert len(connect_data["tables"]) > 0
     first_table = connect_data["tables"][0]["name"]
@@ -55,13 +68,7 @@ def test_cli_full_lifecycle(adp_client: ADPClient, db_config: dict[str, Any], cl
             "kn", "create", ds_id, "--name", kn_name, "--tables", first_table,
         ])
         assert create_result.exit_code == 0, f"kn create failed: {create_result.output}"
-        # Parse JSON output
-        for line in reversed(create_result.output.strip().splitlines()):
-            if line.strip().startswith("{"):
-                create_data = json.loads(line)
-                break
-        else:
-            create_data = json.loads(create_result.output)
+        create_data = _extract_json(create_result.output)
         kn_id = create_data["kn_id"]
         assert create_data["status"] in ("completed", "failed")
         assert len(create_data["object_types"]) == 1
