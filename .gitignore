@@ -14,6 +14,7 @@ venv/
 !.env.example
 .coverage
 test-result/
+.worktrees/
 node_modules/
 *.tgz
 .DS_Store
