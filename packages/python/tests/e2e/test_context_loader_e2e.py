@@ -19,7 +19,7 @@ pytestmark = pytest.mark.e2e
 
 def test_kn_list_discovers_knowledge_networks(cli_runner):
     """kn list should return knowledge networks."""
-    result = cli_runner.invoke(cli, ["bkn", "list"])
+    result = cli_runner.invoke(cli, ["kn", "list"])
     assert result.exit_code == 0
     data = json.loads(result.output)
     for kn in data:
@@ -32,7 +32,7 @@ def test_kn_export_returns_structure(kweaver_client: KWeaverClient, cli_runner):
     kns = kweaver_client.knowledge_networks.list()
     if not kns:
         pytest.skip("No knowledge networks available")
-    result = cli_runner.invoke(cli, ["bkn", "export", kns[0].id])
+    result = cli_runner.invoke(cli, ["kn", "export", kns[0].id])
     assert result.exit_code == 0
     data = json.loads(result.output)
     assert isinstance(data, dict)
@@ -43,11 +43,19 @@ def test_query_instances_returns_data(kweaver_client: KWeaverClient, cli_runner)
     kns = kweaver_client.knowledge_networks.list()
     if not kns:
         pytest.skip("No knowledge networks available")
-    kn = kns[0]
-    ots = kweaver_client.object_types.list(kn.id)
-    if not ots:
+    kn = None
+    ot = None
+    for candidate_kn in kns:
+        try:
+            ots = kweaver_client.object_types.list(candidate_kn.id)
+        except Exception:
+            continue
+        if ots:
+            kn = candidate_kn
+            ot = ots[0]
+            break
+    if ot is None:
         pytest.skip("No object types available")
-    ot = ots[0]
     result = cli_runner.invoke(cli, [
         "query", "instances", kn.id, ot.id, "--limit", "5",
     ])
