@@ -1,6 +1,6 @@
-# KWeaver Python SDK 设计文档
+# KWeaver SDK 设计文档
 
-v0.6.0 | 2026-03-13
+v0.7.0 | 2026-03-16
 
 ---
 

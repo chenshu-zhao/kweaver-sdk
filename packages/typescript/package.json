@@ -1,8 +1,16 @@
 {
   "name": "kweaver-sdk",
   "version": "0.1.4",
-  "description": "KWeaver CLI — TypeScript implementation with Ink TUI.",
+  "description": "KWeaver TypeScript SDK — CLI tool and programmatic API for knowledge networks and Decision Agents.",
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "bin": {
     "kweaver": "bin/kweaver.js"
   },
