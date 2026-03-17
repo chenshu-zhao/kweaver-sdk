@@ -83,6 +83,32 @@ kweaver auth login https://your-kweaver-instance.com --alias prod
 
 ## TypeScript SDK 用法
 
+### 简洁 API（推荐）
+
+```typescript
+import kweaver from "kweaver-sdk/kweaver";
+
+// 使用 `kweaver auth login` 保存的凭据，零配置
+kweaver.configure({ config: true, bknId: "your-bkn-id", agentId: "your-agent-id" });
+
+// 搜索 BKN
+const results = await kweaver.search("供应链有哪些关键风险？");
+for (const concept of results.concepts) console.log(concept.concept_name);
+
+// 与 Agent 对话
+const reply = await kweaver.chat("总结前三大风险");
+console.log(reply.text);
+
+// 接入数据源或修改对象类后，重建 BKN 索引
+await kweaver.weaver({ wait: true });
+
+// 查看所有 BKN 和 Agent
+const bknList   = await kweaver.bkns();
+const agentList = await kweaver.agents();
+```
+
+### 底层客户端（高级用法）
+
 ```typescript
 import { KWeaverClient } from "kweaver-sdk";
 

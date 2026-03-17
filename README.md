@@ -83,6 +83,32 @@ Or use environment variables: `KWEAVER_BASE_URL`, `KWEAVER_BUSINESS_DOMAIN`, `KW
 
 ## TypeScript SDK Usage
 
+### Simple API (recommended)
+
+```typescript
+import kweaver from "kweaver-sdk/kweaver";
+
+// Uses saved credentials from `kweaver auth login`
+kweaver.configure({ config: true, bknId: "your-bkn-id", agentId: "your-agent-id" });
+
+// Search the BKN
+const results = await kweaver.search("What risks exist in the supply chain?");
+for (const concept of results.concepts) console.log(concept.concept_name);
+
+// Chat with an agent
+const reply = await kweaver.chat("Summarise the top 3 risks");
+console.log(reply.text);
+
+// After adding datasources or modifying object types, rebuild the BKN index
+await kweaver.weaver({ wait: true });
+
+// List available BKNs and agents
+const bknList   = await kweaver.bkns();
+const agentList = await kweaver.agents();
+```
+
+### Full client API (advanced)
+
 ```typescript
 import { KWeaverClient } from "kweaver-sdk";
 
