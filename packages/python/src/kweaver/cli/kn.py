@@ -325,6 +325,17 @@ def object_type_delete(kn_id: str, ot_ids: str, yes: bool) -> None:
     click.echo(f"Deleted {ot_ids}")
 
 
+@object_type_group.command("properties")
+@click.argument("kn_id")
+@click.argument("ot_id")
+@handle_errors
+def object_type_properties(kn_id: str, ot_id: str) -> None:
+    """Query object type property definitions and statistics."""
+    client = make_client()
+    data = client.query.object_type_properties(kn_id, ot_id)
+    pp(data)
+
+
 @kn_group.group("relation-type")
 def relation_type_group() -> None:
     """Relation type (schema) commands."""
