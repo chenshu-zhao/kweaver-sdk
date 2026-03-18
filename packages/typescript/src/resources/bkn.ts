@@ -128,6 +128,7 @@ export class BknResource {
 
   /**
    * Search KN schema — finds matching object types, relation types, and action types.
+   * Uses MCP protocol via the context-loader (public endpoint).
    */
   async knSearch(
     knId: string,
@@ -139,23 +140,12 @@ export class BknResource {
     action_types?: unknown[];
     nodes?: unknown[];
   }> {
-    const { baseUrl, accessToken, businessDomain } = this.ctx.base();
-    const url = `${baseUrl}/api/agent-retrieval/in/v1/kn/kn_search`;
-    const reqBody: Record<string, unknown> = { kn_id: knId, query };
-    if (opts.onlySchema) {
-      reqBody.only_schema = true;
-    }
-    const { body } = await fetchTextOrThrow(url, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${accessToken}`,
-        token: accessToken,
-        "x-business-domain": businessDomain,
-      },
-      body: JSON.stringify(reqBody),
-    });
-    return JSON.parse(body) as {
+    const { ContextLoaderResource } = await import("./context-loader.js");
+    const { baseUrl } = this.ctx.base();
+    const mcpUrl = `${baseUrl}/api/agent-retrieval/v1/mcp`;
+    const cl = new ContextLoaderResource(this.ctx, mcpUrl, knId);
+    const result = await cl.search({ query, only_schema: opts.onlySchema ?? false });
+    return result as {
       object_types?: unknown[];
       relation_types?: unknown[];
       action_types?: unknown[];
