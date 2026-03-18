@@ -1146,6 +1146,12 @@ query/properties: Query via ontology-query API. For query, --limit and --search-
     console.error(`Unknown object-type action: ${action}. Use list, get, create, update, delete, query, or properties.`);
     return 1;
   } catch (error) {
+    if (error instanceof Error && error.message === "help") {
+      console.log(`kweaver bkn object-type create <kn-id> --name X --dataview-id Y --primary-key Z --display-key W [--property '<json>' ...]
+kweaver bkn object-type update <kn-id> <ot-id> [--name X] [--display-key Y]
+kweaver bkn object-type delete <kn-id> <ot-ids> [-y]`);
+      return 0;
+    }
     console.error(formatHttpError(error));
     return 1;
   }
@@ -1409,6 +1415,12 @@ create/update/delete: Schema CRUD.`);
     console.error(`Unknown relation-type action: ${action}. Use list, get, create, update, or delete.`);
     return 1;
   } catch (error) {
+    if (error instanceof Error && error.message === "help") {
+      console.log(`kweaver bkn relation-type create <kn-id> --name X --source <ot-id> --target <ot-id> [--mapping src:tgt ...]
+kweaver bkn relation-type update <kn-id> <rt-id> [--name X]
+kweaver bkn relation-type delete <kn-id> <rt-ids> [-y]`);
+      return 0;
+    }
     console.error(formatHttpError(error));
     return 1;
   }
