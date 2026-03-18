@@ -125,4 +125,41 @@ export class BknResource {
     const raw = await actionLogCancel({ ...this.ctx.base(), knId, logId });
     return JSON.parse(raw) as unknown;
   }
+
+  /**
+   * Search KN schema — finds matching object types, relation types, and action types.
+   */
+  async knSearch(
+    knId: string,
+    query: string,
+    opts: { onlySchema?: boolean } = {}
+  ): Promise<{
+    object_types?: unknown[];
+    relation_types?: unknown[];
+    action_types?: unknown[];
+    nodes?: unknown[];
+  }> {
+    const { baseUrl, accessToken, businessDomain } = this.ctx.base();
+    const url = `${baseUrl}/api/agent-retrieval/in/v1/kn/kn_search`;
+    const reqBody: Record<string, unknown> = { kn_id: knId, query };
+    if (opts.onlySchema) {
+      reqBody.only_schema = true;
+    }
+    const { body } = await fetchTextOrThrow(url, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${accessToken}`,
+        token: accessToken,
+        "x-business-domain": businessDomain,
+      },
+      body: JSON.stringify(reqBody),
+    });
+    return JSON.parse(body) as {
+      object_types?: unknown[];
+      relation_types?: unknown[];
+      action_types?: unknown[];
+      nodes?: unknown[];
+    };
+  }
 }

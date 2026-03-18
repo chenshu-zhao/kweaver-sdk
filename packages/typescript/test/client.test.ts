@@ -167,6 +167,59 @@ test("client.agents.chat resolves agent info then sends chat request", async () 
   }
 });
 
+// ── bkn.knSearch ─────────────────────────────────────────────────────────────
+
+test("client.bkn.knSearch sends correct request and parses response", async () => {
+  const orig = globalThis.fetch;
+  const captured: { url?: string; body?: string } = {};
+  globalThis.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+    captured.url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    captured.body = init?.body as string;
+    return new Response(
+      JSON.stringify({
+        object_types: [{ id: "ot_01", name: "Products" }],
+        relation_types: [],
+        action_types: [],
+      }),
+      { status: 200 }
+    );
+  };
+
+  try {
+    const client = makeClient();
+    const result = await client.bkn.knSearch("kn_01", "产品");
+    assert.ok(captured.url?.includes("/api/agent-retrieval/in/v1/kn/kn_search"));
+    const sentBody = JSON.parse(captured.body!);
+    assert.equal(sentBody.kn_id, "kn_01");
+    assert.equal(sentBody.query, "产品");
+    assert.equal(result.object_types?.length, 1);
+    assert.equal((result.object_types![0] as { name: string }).name, "Products");
+  } finally {
+    globalThis.fetch = orig;
+  }
+});
+
+test("client.bkn.knSearch passes only_schema when set", async () => {
+  const orig = globalThis.fetch;
+  const captured: { body?: string } = {};
+  globalThis.fetch = async (_input: string | URL | Request, init?: RequestInit) => {
+    captured.body = init?.body as string;
+    return new Response(
+      JSON.stringify({ object_types: [], relation_types: [], action_types: [] }),
+      { status: 200 }
+    );
+  };
+
+  try {
+    const client = makeClient();
+    await client.bkn.knSearch("kn_01", "test", { onlySchema: true });
+    const sentBody = JSON.parse(captured.body!);
+    assert.equal(sentBody.only_schema, true);
+  } finally {
+    globalThis.fetch = orig;
+  }
+});
+
 // ── contextLoader factory ─────────────────────────────────────────────────────
 
 test("client.contextLoader returns a ContextLoaderResource", () => {
