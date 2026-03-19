@@ -86,8 +86,10 @@ def lifecycle_env(
         job = client.knowledge_networks.build(kn.id)
         status = job.wait(timeout=300)
         created["build_status"] = status.state
+        created["build_detail"] = status.state_detail
     except Exception as exc:
         created["build_status"] = f"error: {exc}"
+        created["build_detail"] = str(exc)
 
     yield created
 
