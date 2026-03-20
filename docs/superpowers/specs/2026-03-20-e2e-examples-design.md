@@ -19,9 +19,10 @@ Three layers, served by progressive difficulty:
 ```
 examples/
   README.md                    # Overview + narrative + one-line per example
+  setup.ts                     # Shared helpers: init client, find BKN, find agent
   01-quick-start.ts            # Configure + discover + search
   02-explore-schema.ts         # Schema exploration (OT/RT/AT)
-  03-query-and-traverse.ts     # Instance query + subgraph traversal
+  03-query-and-traverse.ts     # Instance query + subgraph + Context Loader (MCP)
   04-actions.ts                # Action execution + polling + logs
   05-agent-conversation.ts     # Chat (single + stream) + sessions
   06-full-pipeline.ts          # Datasource → BKN → build → search → cleanup
@@ -33,6 +34,7 @@ examples/
 - Credentials loaded from `~/.kweaver/` via `config: true` or `KWeaverClient` auto-detection
 - Dynamic discovery: examples find available BKNs/agents at runtime, not hardcoded IDs
 - Example 06 is destructive (creates/deletes resources), others are read-only
+- A shared `examples/setup.ts` utility provides common helpers: init client, find first BKN with data, find accessible agent — reducing boilerplate across examples
 
 ## Example Designs
 
@@ -52,7 +54,7 @@ examples/
 **~50-60 lines. Client API.**
 
 1. Initialize `KWeaverClient`
-2. `knowledgeNetworks.get(knId, { stats: true })` — BKN statistics
+2. `knowledgeNetworks.get(knId, { include_statistics: true })` — BKN statistics
 3. `knowledgeNetworks.listObjectTypes(knId)` — list all object types with properties
 4. `knowledgeNetworks.listRelationTypes(knId)` — list relation types (source → target)
 5. `knowledgeNetworks.listActionTypes(knId)` — list executable actions
@@ -61,14 +63,24 @@ examples/
 
 ### 03: `query-and-traverse.ts` — Instance Query & Subgraph Traversal
 
-**~60-70 lines. Client API.**
+**~80-90 lines. Client API + Context Loader.**
 
-1. `bkn.queryInstances(knId, otId, { conditions, limit })` — conditional instance query
-2. `bkn.queryProperties(knId, otId, { instances })` — read property details
-3. `bkn.querySubgraph(knId, { startInstances, pathSpec })` — traverse from instance along relations
+Note: `bkn.queryInstances`, `bkn.queryProperties`, `bkn.querySubgraph` all take a raw `body: Record<string, unknown>` as the request payload.
+
+1. `bkn.queryInstances(knId, otId, body)` — conditional instance query (body contains conditions, limit, etc.)
+2. `bkn.queryProperties(knId, otId, body)` — read property details (body contains instance identities)
+3. `bkn.querySubgraph(knId, body)` — traverse from instance along relations (body contains start instances, path spec)
 4. Print subgraph: start → relation → end
 
 **Capabilities shown**: Conditional filtering, property reads, subgraph traversal (core graph value).
+
+**Bonus section — Context Loader (MCP):**
+
+5. `client.contextLoader(mcpUrl, knId)` — initialize Context Loader
+6. `cl.knSearch({ query })` — schema-level search via MCP (Layer 1)
+7. `cl.queryObjectInstance({ otId, conditions })` — instance query via MCP (Layer 2)
+
+This section shows the same query capabilities through the MCP protocol interface, demonstrating that external AI agents can access the same data via Context Loader.
 
 ### 04: `actions.ts` — Execute Actions & Track Results
 
@@ -88,7 +100,7 @@ examples/
 
 1. `agents.list()` — list available agents with name + description
 2. `agents.chat(agentId, "question")` — single-shot chat, print reply + `progress` (reasoning chain)
-3. `agents.stream(agentId, "question", { onTextDelta, onProgress })` — streaming chat with real-time output
+3. `agents.stream(agentId, "question", callbacks, opts)` — streaming chat; `callbacks` is a positional arg with `{ onTextDelta, onProgress }`, not part of opts
 4. `conversations.list(agentId)` — list conversation sessions
 5. `conversations.listMessages(conversationId)` — replay full message history
 
@@ -96,19 +108,21 @@ examples/
 
 ### 06: `full-pipeline.ts` — Data Source to Intelligent Q&A
 
-**~100-120 lines. Client API. Destructive (creates/deletes resources).**
+**~100-120 lines. Mixed API layers. Destructive (creates/deletes resources).**
 
-1. `testDatasource(opts)` — verify database connection
-2. `createDatasource(opts)` — register MySQL datasource
-3. `listTablesWithColumns(opts)` — inspect table structure
-4. `createDataView(opts)` — create DataView mapping
-5. `knowledgeNetworks.create({ name, description })` — create new BKN
-6. Create object type linked to DataView
-7. `knowledgeNetworks.buildAndWait(bknId)` — build index and wait
-8. `bkn.semanticSearch(bknId, "business question")` — search the new graph
+Note: Datasource and DataView operations use low-level API functions (not resource methods on `KWeaverClient`), imported directly from the API layer. Object type creation also uses the low-level API — `KWeaverClient` does not yet expose resource wrappers for these.
+
+1. `testDatasource(opts)` — verify database connection (from `api/datasources`)
+2. `createDatasource(opts)` — register MySQL datasource (from `api/datasources`)
+3. `listTablesWithColumns(opts)` — inspect table structure (from `api/datasources`)
+4. `createDataView(opts)` — create DataView mapping (from `api/dataviews`)
+5. `knowledgeNetworks.create({ name, description })` — create new BKN (Client API)
+6. Create object type linked to DataView (via low-level API, e.g. `createObjectType` from `api/ontology-crud`)
+7. `knowledgeNetworks.buildAndWait(bknId)` — build index and wait (Client API)
+8. `bkn.semanticSearch(bknId, "business question")` — search the new graph (Client API)
 9. Cleanup: delete all created resources
 
-**Capabilities shown**: Datasource management, DataView, BKN lifecycle, build + wait, search validation, resource cleanup.
+**Capabilities shown**: Low-level API functions, datasource management, DataView, BKN lifecycle, build + wait, search validation, resource cleanup.
 
 ## README.md Structure
 
@@ -119,6 +133,7 @@ End-to-end examples running against a real KWeaver instance.
 
 ## Prerequisites
 - Node.js 18+
+- `npm install @kweaver-ai/kweaver-sdk` (or run from the monorepo)
 - `kweaver auth login <your-platform-url>` (credentials in ~/.kweaver/)
 - A KWeaver instance with at least one BKN containing data
 
@@ -128,7 +143,7 @@ End-to-end examples running against a real KWeaver instance.
 |---|------|-------------------|--------|
 | 01 | quick-start.ts | Configure, discover, search | 30-40 |
 | 02 | explore-schema.ts | Object types, relations, actions | 50-60 |
-| 03 | query-and-traverse.ts | Instance queries, subgraph traversal | 60-70 |
+| 03 | query-and-traverse.ts | Instance queries, subgraph, Context Loader | 80-90 |
 | 04 | actions.ts | Execute actions, track results | 60-70 |
 | 05 | agent-conversation.ts | Chat with agents, streaming | 70-80 |
 | 06 | full-pipeline.ts | Full data→knowledge→intelligence pipeline | 100-120 |
