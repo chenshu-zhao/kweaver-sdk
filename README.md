@@ -226,7 +226,8 @@ kweaver-sdk/
 │       │   ├── api/             # low-level HTTP functions
 │       │   └── commands/        # CLI command implementations
 │       └── test/
-├── skills/kweaver-core/         # AI agent skill (SKILL.md)
+├── skills/kweaver-core/         # AI agent skill — KWeaver CLI (SKILL.md)
+├── skills/create-bkn/           # AI agent skill — BKN authoring (SKILL.md)
 ├── docs/
 ├── README.md                    # English (this file)
 └── README.zh.md                 # 中文
@@ -244,17 +245,29 @@ make -C packages/typescript test
 
 ## Using with AI Agents
 
+Install [Agent Skills](https://skills.sh) with the [`skills` CLI](https://www.npmjs.com/package/skills) (`npx skills add`):
+
 ```bash
+# KWeaver CLI — auth, BKN/KN management, agents, Context Loader
 npx skills add https://github.com/kweaver-ai/kweaver-sdk --skill kweaver-core
+
+# BKN authoring — modular BKN v2.0.0 definitions (object/relation/action types, …)
+npx skills add https://github.com/kweaver-ai/kweaver-sdk --skill create-bkn
+
+# Both (example: Cursor only, global install, non-interactive)
+npx skills add https://github.com/kweaver-ai/kweaver-sdk \
+  --skill kweaver-core --skill create-bkn -a cursor -g -y
 ```
 
 [![skills.sh](https://skills.sh/badge/kweaver-core)](https://skills.sh/kweaver-ai/kweaver-sdk)
+[![skills.sh](https://skills.sh/badge/create-bkn)](https://skills.sh/kweaver-ai/kweaver-sdk)
 
-Before using the skill, authenticate with your KWeaver instance:
+Before using **kweaver-core**, authenticate with your KWeaver instance:
 
 ```bash
 npm install -g @kweaver-ai/kweaver-sdk
 kweaver auth login https://your-kweaver-instance.com
 ```
 
-See [skills/kweaver-core/SKILL.md](skills/kweaver-core/SKILL.md) for details.
+- [skills/kweaver-core/SKILL.md](skills/kweaver-core/SKILL.md) — CLI workflows
+- [skills/create-bkn/SKILL.md](skills/create-bkn/SKILL.md) — BKN file layout and references

@@ -225,7 +225,8 @@ kweaver-sdk/
 │       │   ├── api/             # 底层 HTTP 函数
 │       │   └── commands/        # CLI 命令实现
 │       └── test/
-├── skills/kweaver-core/         # AI Agent 操作手册（SKILL.md）
+├── skills/kweaver-core/         # AI Agent Skill — KWeaver CLI（SKILL.md）
+├── skills/create-bkn/           # AI Agent Skill — BKN 建模（SKILL.md）
 ├── docs/
 └── README.md
 ```
@@ -296,17 +297,29 @@ make -C packages/typescript test
 
 ## 在 AI 智能体中使用
 
+使用 [`skills` CLI](https://www.npmjs.com/package/skills)（`npx skills add`）安装 [Agent Skills](https://skills.sh)：
+
 ```bash
+# KWeaver CLI — 认证、BKN/知识网络、Agent、Context Loader
 npx skills add https://github.com/kweaver-ai/kweaver-sdk --skill kweaver-core
+
+# BKN 建模 — 模块化 BKN v2.0.0（对象类/关系类/行动类等）
+npx skills add https://github.com/kweaver-ai/kweaver-sdk --skill create-bkn
+
+# 同时安装（示例：仅 Cursor、全局、非交互）
+npx skills add https://github.com/kweaver-ai/kweaver-sdk \
+  --skill kweaver-core --skill create-bkn -a cursor -g -y
 ```
 
 [![skills.sh](https://skills.sh/badge/kweaver-core)](https://skills.sh/kweaver-ai/kweaver-sdk)
+[![skills.sh](https://skills.sh/badge/create-bkn)](https://skills.sh/kweaver-ai/kweaver-sdk)
 
-使用前需先安装 CLI 并完成认证：
+使用 **kweaver-core** 前需先安装 CLI 并完成认证：
 
 ```bash
 npm install -g @kweaver-ai/kweaver-sdk
 kweaver auth login https://your-kweaver-instance.com
 ```
 
-详见 [skills/kweaver-core/SKILL.md](skills/kweaver-core/SKILL.md)。
+- [skills/kweaver-core/SKILL.md](skills/kweaver-core/SKILL.md) — CLI 工作流
+- [skills/create-bkn/SKILL.md](skills/create-bkn/SKILL.md) — BKN 目录结构与参考文档
