@@ -55,3 +55,12 @@ def test_vega_error_hierarchy():
 def test_vega_query_error_attrs():
     e = VegaQueryError("fail", query_type="dsl")
     assert e.query_type == "dsl"
+
+
+def test_vega_model_ignores_extra_fields():
+    """Vega models should tolerate extra fields from API."""
+    m = VegaMetricModel(id="mm-1", name="cpu", unknown_field="should_not_crash", another=123)
+    assert m.id == "mm-1"
+    # extra fields should be silently ignored
+    assert not hasattr(m, "unknown_field")
+    assert not hasattr(m, "another")

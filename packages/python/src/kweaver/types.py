@@ -102,6 +102,8 @@ class RelationType(BaseModel):
 
 
 class ConceptGroup(BaseModel):
+    model_config = {"extra": "ignore"}
+
     id: str
     name: str
     kn_id: str
@@ -114,6 +116,8 @@ class ConceptGroup(BaseModel):
 
 
 class Job(BaseModel):
+    model_config = {"extra": "ignore"}
+
     id: str
     kn_id: str
     type: str
@@ -127,6 +131,8 @@ class Job(BaseModel):
 class Task(BaseModel):
     """Sub-task of a Job (BKN background task unit)."""
 
+    model_config = {"extra": "ignore"}
+
     id: str
     job_id: str
     name: str
@@ -137,6 +143,8 @@ class Task(BaseModel):
 
 
 class DataPropertyDetail(BaseModel):
+    model_config = {"extra": "ignore"}
+
     name: str
     display_name: str | None = None
     type: str
@@ -150,18 +158,24 @@ class DataPropertyDetail(BaseModel):
 
 
 class MappingRule(BaseModel):
+    model_config = {"extra": "ignore"}
+
     source_field: str
     target_field: str
     operator: str | None = None
 
 
 class ActionSource(BaseModel):
+    model_config = {"extra": "ignore"}
+
     type: str
     url: str | None = None
     method: str | None = None
 
 
 class ActionParam(BaseModel):
+    model_config = {"extra": "ignore"}
+
     name: str
     type: str
     required: bool = False
@@ -170,6 +184,8 @@ class ActionParam(BaseModel):
 
 
 class ServiceHealth(BaseModel):
+    model_config = {"extra": "ignore"}
+
     service: str
     status: str
     version: str | None = None
@@ -178,6 +194,8 @@ class ServiceHealth(BaseModel):
 
 
 class BKNInspectReport(BaseModel):
+    model_config = {"extra": "ignore"}
+
     kn: KnowledgeNetwork
     health: list[ServiceHealth] = []
     stats: KNStatistics = Field(default_factory=KNStatistics)
@@ -408,6 +426,8 @@ class ActionExecution(BaseModel):
 
 
 class VegaServerInfo(BaseModel):
+    model_config = {"extra": "ignore"}
+
     server_name: str
     server_version: str
     language: str
@@ -417,6 +437,8 @@ class VegaServerInfo(BaseModel):
 
 
 class VegaCatalog(BaseModel):
+    model_config = {"extra": "ignore"}
+
     id: str
     name: str
     type: str
@@ -430,6 +452,8 @@ class VegaCatalog(BaseModel):
 
 
 class VegaResourceProperty(BaseModel):
+    model_config = {"extra": "ignore"}
+
     name: str
     type: str
     description: str | None = None
@@ -438,6 +462,8 @@ class VegaResourceProperty(BaseModel):
 
 
 class VegaResource(BaseModel):
+    model_config = {"extra": "ignore"}
+
     id: str
     name: str
     catalog_id: str
@@ -450,6 +476,8 @@ class VegaResource(BaseModel):
 
 
 class VegaConnectorType(BaseModel):
+    model_config = {"extra": "ignore"}
+
     type: str
     name: str
     enabled: bool = True
@@ -461,6 +489,8 @@ class VegaConnectorType(BaseModel):
 
 
 class VegaMetricModel(BaseModel):
+    model_config = {"extra": "ignore"}
+
     id: str
     name: str
     description: str | None = None
@@ -470,6 +500,8 @@ class VegaMetricModel(BaseModel):
 
 
 class VegaEventModel(BaseModel):
+    model_config = {"extra": "ignore"}
+
     id: str
     name: str
     description: str | None = None
@@ -479,6 +511,8 @@ class VegaEventModel(BaseModel):
 
 
 class VegaTraceModel(BaseModel):
+    model_config = {"extra": "ignore"}
+
     id: str
     name: str
     description: str | None = None
@@ -488,6 +522,8 @@ class VegaTraceModel(BaseModel):
 
 
 class VegaDataView(BaseModel):
+    model_config = {"extra": "ignore"}
+
     id: str
     name: str
     description: str | None = None
@@ -498,12 +534,16 @@ class VegaDataView(BaseModel):
 
 
 class VegaDataDictItem(BaseModel):
+    model_config = {"extra": "ignore"}
+
     key: str
     value: str
     description: str | None = None
 
 
 class VegaDataDict(BaseModel):
+    model_config = {"extra": "ignore"}
+
     id: str
     name: str
     description: str | None = None
@@ -513,6 +553,8 @@ class VegaDataDict(BaseModel):
 
 
 class VegaObjectiveModel(BaseModel):
+    model_config = {"extra": "ignore"}
+
     id: str
     name: str
     description: str | None = None
@@ -525,6 +567,8 @@ class VegaObjectiveModel(BaseModel):
 
 
 class VegaDiscoverTask(BaseModel):
+    model_config = {"extra": "ignore"}
+
     id: str
     catalog_id: str
     status: str  # pending | running | completed | failed
@@ -535,6 +579,8 @@ class VegaDiscoverTask(BaseModel):
 
 
 class VegaMetricTask(BaseModel):
+    model_config = {"extra": "ignore"}
+
     id: str
     status: str
     metric_model_id: str | None = None
@@ -545,6 +591,8 @@ class VegaMetricTask(BaseModel):
 
 
 class VegaSpan(BaseModel):
+    model_config = {"extra": "ignore"}
+
     trace_id: str
     span_id: str
     parent_span_id: str | None = None
@@ -559,12 +607,16 @@ class VegaSpan(BaseModel):
 
 
 class VegaQueryResult(BaseModel):
+    model_config = {"extra": "ignore"}
+
     entries: list[dict[str, Any]] = []
     total_count: int = 0
     search_after: list[Any] | None = None
 
 
 class VegaDslResult(BaseModel):
+    model_config = {"extra": "ignore"}
+
     hits: list[dict[str, Any]] = []
     total: int = 0
     took_ms: int = 0
@@ -572,6 +624,8 @@ class VegaDslResult(BaseModel):
 
 
 class VegaPromqlResult(BaseModel):
+    model_config = {"extra": "ignore"}
+
     status: str
     result_type: str = ""
     result: list[Any] = []
@@ -582,6 +636,8 @@ class VegaPromqlResult(BaseModel):
 
 
 class VegaHealthReport(BaseModel):
+    model_config = {"extra": "ignore"}
+
     healthy: int = 0
     unhealthy: int = 0
     unknown: int = 0
@@ -589,6 +645,8 @@ class VegaHealthReport(BaseModel):
 
 
 class VegaPlatformStats(BaseModel):
+    model_config = {"extra": "ignore"}
+
     catalog_count: int = 0
     resource_count: int = 0
     metric_model_count: int = 0
@@ -601,6 +659,8 @@ class VegaPlatformStats(BaseModel):
 
 
 class VegaInspectReport(BaseModel):
+    model_config = {"extra": "ignore"}
+
     server_info: VegaServerInfo | None = None
     catalog_health: VegaHealthReport = Field(default_factory=VegaHealthReport)
     platform_stats: VegaPlatformStats | None = None
