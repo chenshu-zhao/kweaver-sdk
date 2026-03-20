@@ -209,3 +209,288 @@ def test_query_events():
     assert isinstance(result, VegaDslResult)
     assert result.total == 1
     assert result.hits[0]["event"] == "login"
+
+
+# -- VegaTasksResource tests -------------------------------------------------
+
+_DISCOVER_TASK = {
+    "id": "dt-1",
+    "catalog_id": "cat-1",
+    "status": "completed",
+    "progress": 1.0,
+    "error": None,
+    "create_time": "2026-01-01T00:00:00Z",
+    "update_time": "2026-01-01T00:01:00Z",
+}
+
+
+def test_tasks_list_discover():
+    """list_discover() GETs /api/vega-backend/v1/discover-tasks and returns VegaDiscoverTask list."""
+    def handler(req):
+        assert req.url.path == "/api/vega-backend/v1/discover-tasks"
+        return httpx.Response(200, json={"entries": [_DISCOVER_TASK]})
+
+    from kweaver.resources.vega import VegaNamespace
+    ns = VegaNamespace(_make_vega_http(handler))
+    result = ns.tasks.list_discover()
+    assert len(result) == 1
+    assert isinstance(result[0], VegaDiscoverTask)
+    assert result[0].id == "dt-1"
+    assert result[0].status == "completed"
+
+
+def test_tasks_list_discover_with_status_filter():
+    """list_discover(status=...) passes status param in query string."""
+    captured = {}
+
+    def handler(req):
+        captured["params"] = dict(req.url.params)
+        return httpx.Response(200, json={"entries": []})
+
+    from kweaver.resources.vega import VegaNamespace
+    ns = VegaNamespace(_make_vega_http(handler))
+    result = ns.tasks.list_discover(status="running")
+    assert result == []
+    assert captured["params"].get("status") == "running"
+
+
+def test_tasks_list_discover_data_format():
+    """list_discover() handles {"data": [...]} response format."""
+    def handler(req):
+        return httpx.Response(200, json={"data": [_DISCOVER_TASK]})
+
+    from kweaver.resources.vega import VegaNamespace
+    ns = VegaNamespace(_make_vega_http(handler))
+    result = ns.tasks.list_discover()
+    assert len(result) == 1
+    assert isinstance(result[0], VegaDiscoverTask)
+
+
+# -- health() tests ----------------------------------------------------------
+
+_SERVER_INFO = {
+    "server_name": "vega-backend",
+    "server_version": "1.0.0",
+    "language": "go",
+    "go_version": "go1.21",
+    "go_arch": "amd64",
+}
+
+
+def test_health_returns_server_info():
+    """health() GETs /health and returns a VegaServerInfo."""
+    def handler(req):
+        assert req.url.path == "/health"
+        return httpx.Response(200, json=_SERVER_INFO)
+
+    from kweaver.resources.vega import VegaNamespace
+    ns = VegaNamespace(_make_vega_http(handler))
+    info = ns.health()
+    assert isinstance(info, VegaServerInfo)
+    assert info.server_name == "vega-backend"
+    assert info.server_version == "1.0.0"
+    assert info.go_arch == "amd64"
+
+
+# -- inspect() tests ---------------------------------------------------------
+
+
+def test_inspect_returns_report():
+    """inspect() assembles VegaInspectReport from health + catalogs + tasks."""
+    _catalog = {
+        "id": "cat-1", "name": "Prometheus", "type": "metrics",
+        "connector_type": "prometheus", "status": "active", "health_status": "healthy",
+    }
+
+    def handler(req):
+        path = req.url.path
+        if path == "/health":
+            return httpx.Response(200, json=_SERVER_INFO)
+        if path == "/api/vega-backend/v1/catalogs":
+            return httpx.Response(200, json={"entries": [_catalog]})
+        if path == "/api/vega-backend/v1/discover-tasks":
+            return httpx.Response(200, json={"entries": []})
+        return httpx.Response(404, json={})
+
+    from kweaver.resources.vega import VegaNamespace
+    ns = VegaNamespace(_make_vega_http(handler))
+    report = ns.inspect()
+    assert isinstance(report, VegaInspectReport)
+    assert isinstance(report.server_info, VegaServerInfo)
+    assert report.server_info.server_name == "vega-backend"
+    assert report.catalog_health.healthy == 1
+    assert report.active_tasks == []
+
+
+def test_inspect_partial_failure_still_returns_report():
+    """inspect() returns a partial report when health endpoint fails."""
+    def handler(req):
+        path = req.url.path
+        if path == "/health":
+            return httpx.Response(500, json={"error": "internal server error"})
+        if path == "/api/vega-backend/v1/catalogs":
+            return httpx.Response(200, json={"entries": []})
+        if path == "/api/vega-backend/v1/discover-tasks":
+            return httpx.Response(200, json={"entries": []})
+        return httpx.Response(404, json={})
+
+    from kweaver.resources.vega import VegaNamespace
+    ns = VegaNamespace(_make_vega_http(handler))
+    report = ns.inspect()
+    assert isinstance(report, VegaInspectReport)
+    # server_info is None because /health failed
+    assert report.server_info is None
+    # catalog_health is still populated
+    assert report.catalog_health is not None
+
+
+# -- Catalogs tests ----------------------------------------------------------
+
+_CATALOG_SAMPLE = {
+    "id": "cat-1",
+    "name": "My Catalog",
+    "type": "jdbc",
+    "connector_type": "mysql",
+    "status": "active",
+}
+
+
+def test_catalog_list():
+    def handler(req):
+        return httpx.Response(200, json={"entries": [_CATALOG_SAMPLE]})
+    from kweaver.resources.vega import VegaNamespace
+    ns = VegaNamespace(_make_vega_http(handler))
+    result = ns.catalogs.list()
+    assert len(result) == 1
+    assert isinstance(result[0], VegaCatalog)
+    assert result[0].id == "cat-1"
+
+
+def test_catalog_list_data_format():
+    """list() also handles {"data": [...]} response format."""
+    def handler(req):
+        return httpx.Response(200, json={"data": [_CATALOG_SAMPLE]})
+    from kweaver.resources.vega import VegaNamespace
+    ns = VegaNamespace(_make_vega_http(handler))
+    result = ns.catalogs.list()
+    assert len(result) == 1
+    assert isinstance(result[0], VegaCatalog)
+
+
+def test_catalog_list_with_status_filter():
+    def handler(req):
+        assert req.url.params.get("status") == "active"
+        return httpx.Response(200, json={"entries": [_CATALOG_SAMPLE]})
+    from kweaver.resources.vega import VegaNamespace
+    ns = VegaNamespace(_make_vega_http(handler))
+    result = ns.catalogs.list(status="active")
+    assert len(result) == 1
+    assert isinstance(result[0], VegaCatalog)
+
+
+def test_catalog_get():
+    def handler(req):
+        return httpx.Response(200, json=_CATALOG_SAMPLE)
+    from kweaver.resources.vega import VegaNamespace
+    ns = VegaNamespace(_make_vega_http(handler))
+    result = ns.catalogs.get("cat-1")
+    assert isinstance(result, VegaCatalog)
+    assert result.id == "cat-1"
+    assert result.connector_type == "mysql"
+
+
+def test_catalog_get_entries_wrapper():
+    """get() should unwrap {"entries": [obj]} response format."""
+    def handler(req):
+        return httpx.Response(200, json={"entries": [_CATALOG_SAMPLE]})
+    from kweaver.resources.vega import VegaNamespace
+    ns = VegaNamespace(_make_vega_http(handler))
+    result = ns.catalogs.get("cat-1")
+    assert isinstance(result, VegaCatalog)
+    assert result.id == "cat-1"
+
+
+# -- Resources tests ---------------------------------------------------------
+
+_RESOURCE_SAMPLE = {
+    "id": "res-1",
+    "name": "orders",
+    "catalog_id": "cat-1",
+    "category": "table",
+    "status": "active",
+}
+
+
+def test_resource_list():
+    def handler(req):
+        return httpx.Response(200, json={"entries": [_RESOURCE_SAMPLE]})
+    from kweaver.resources.vega import VegaNamespace
+    ns = VegaNamespace(_make_vega_http(handler))
+    result = ns.resources.list()
+    assert len(result) == 1
+    assert isinstance(result[0], VegaResource)
+    assert result[0].id == "res-1"
+
+
+def test_resource_list_with_catalog_filter():
+    def handler(req):
+        assert req.url.params.get("catalog_id") == "cat-1"
+        return httpx.Response(200, json={"data": [_RESOURCE_SAMPLE]})
+    from kweaver.resources.vega import VegaNamespace
+    ns = VegaNamespace(_make_vega_http(handler))
+    result = ns.resources.list(catalog_id="cat-1")
+    assert len(result) == 1
+    assert isinstance(result[0], VegaResource)
+
+
+def test_resource_get():
+    def handler(req):
+        return httpx.Response(200, json=_RESOURCE_SAMPLE)
+    from kweaver.resources.vega import VegaNamespace
+    ns = VegaNamespace(_make_vega_http(handler))
+    result = ns.resources.get("res-1")
+    assert isinstance(result, VegaResource)
+    assert result.catalog_id == "cat-1"
+    assert result.category == "table"
+
+
+# -- ConnectorTypes tests ----------------------------------------------------
+
+_CONNECTOR_TYPE_SAMPLE = {
+    "type": "mysql",
+    "name": "MySQL",
+    "enabled": True,
+}
+
+
+def test_connector_type_list():
+    def handler(req):
+        return httpx.Response(200, json={"entries": [_CONNECTOR_TYPE_SAMPLE]})
+    from kweaver.resources.vega import VegaNamespace
+    ns = VegaNamespace(_make_vega_http(handler))
+    result = ns.connector_types.list()
+    assert len(result) == 1
+    assert isinstance(result[0], VegaConnectorType)
+    assert result[0].type == "mysql"
+
+
+def test_connector_type_list_data_format():
+    """list() also handles {"data": [...]} response format."""
+    def handler(req):
+        return httpx.Response(200, json={"data": [_CONNECTOR_TYPE_SAMPLE]})
+    from kweaver.resources.vega import VegaNamespace
+    ns = VegaNamespace(_make_vega_http(handler))
+    result = ns.connector_types.list()
+    assert len(result) == 1
+    assert isinstance(result[0], VegaConnectorType)
+
+
+def test_connector_type_get():
+    def handler(req):
+        return httpx.Response(200, json=_CONNECTOR_TYPE_SAMPLE)
+    from kweaver.resources.vega import VegaNamespace
+    ns = VegaNamespace(_make_vega_http(handler))
+    result = ns.connector_types.get("mysql")
+    assert isinstance(result, VegaConnectorType)
+    assert result.name == "MySQL"
+    assert result.enabled is True
