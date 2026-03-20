@@ -1,6 +1,8 @@
 # KWeaver 后端 API 一致性与设计问题
 
 > 来源：kweaver-sdk 开发过程中发现的后端系统问题。SDK 已通过防御性代码绕过，但这些是后端应该修复的根因。
+>
+> 所有复现步骤仅需 curl，不依赖 SDK。`$BASE` 为平台地址，`$TOKEN` 为有效 Bearer Token。
 
 ---
 
@@ -11,7 +13,7 @@
 SDK 被迫用 4 层 fallback 链提取错误信息：
 
 ```python
-# _errors.py — 实际代码
+# _errors.py:122-125 — 实际代码
 error_code = body.get("error_code") or body.get("ErrorCode") or body.get("code")
 message = body.get("message") or body.get("Description") or body.get("detail") or body.get("description")
 ```
@@ -28,6 +30,25 @@ message = body.get("message") or body.get("Description") or body.get("detail") o
 | agent-factory | `error_code` | `message` | |
 | agent-app | `error_code` | `message` | |
 | agent-retrieval (MCP) | `error.data.error_code` | `error.data.message` | JSON-RPC 嵌套 |
+
+### 复现
+
+```bash
+# 步骤 1：触发 ontology-manager 错误（请求不存在的资源）
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "$BASE/api/ontology-manager/v1/knowledge-networks/nonexistent" | python3 -m json.tool
+# 观察：返回 {"error_code": "...", "Description": "..."}（注意大写 D）
+
+# 步骤 2：触发 data-connection 错误（创建同名数据源）
+curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"name":"test_ds","type":"mysql","host":"x","port":3306,"database":"x","account":"x","password":"x"}' \
+  "$BASE/api/data-connection/v1/datasource" | python3 -m json.tool
+# 第一次成功；第二次观察：返回中文 message "已存在"，无 error_code 字段
+
+# 对比两个服务的错误响应结构
+```
+
+**预期差异**：ontology-manager 返回 `error_code` + `Description`，data-connection 不返回 `error_code` 且 message 为中文。
 
 ### 核心问题
 
@@ -73,6 +94,31 @@ entries = data.get("entries", data.get("data", [])) if isinstance(data, dict) el
 | agent-factory | `{"entries": [...]}` 或 `{"data": [...]}` | 裸对象 | |
 | agent-app | `entries`/`items`/`messages`/`list`/`data` 五种之一 | 裸对象 | **5 种 key** |
 
+### 复现
+
+```bash
+# 步骤 1：ontology-manager list — 观察 key 是 "entries" 还是 "data"
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "$BASE/api/ontology-manager/v1/knowledge-networks?limit=2" | python3 -c "
+import sys, json; d=json.load(sys.stdin); print('keys:', list(d.keys()) if isinstance(d, dict) else 'raw_list')"
+
+# 步骤 2：ontology-query 实例查询 — 观察 "datas" key
+# 需要一个有数据的 kn_id 和 ot_id
+curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -H "X-HTTP-Method-Override: GET" \
+  -d '{"limit":1}' \
+  "$BASE/api/ontology-query/v1/knowledge-networks/$KN_ID/object-types/$OT_ID" | python3 -c "
+import sys, json; d=json.load(sys.stdin); print('keys:', list(d.keys()))"
+# 预期：包含 "datas" key（不是 "data"）
+
+# 步骤 3：对比 — 同时请求两个 list 端点，比较 key
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "$BASE/api/agent-factory/v3/personal-space/agent-list?limit=1" | python3 -c "
+import sys, json; d=json.load(sys.stdin); print('keys:', list(d.keys()) if isinstance(d, dict) else 'raw_list')"
+```
+
+**预期差异**：三个服务返回三种不同的 key（`data`/`datas`/`entries`）。
+
 ### 核心问题
 
 1. `"datas"` — ontology-query 实例查询用 `datas` 而非 `data`，全系统唯一
@@ -103,7 +149,7 @@ entries = data.get("entries", data.get("data", [])) if isinstance(data, dict) el
 SDK 对 5 种资源的 create 都要 catch "已存在" 错误 → list 全量 → 按名称查找：
 
 ```python
-# knowledge_networks.py — 实际代码
+# knowledge_networks.py:33-45 — 实际代码
 try:
     data = self._http.post("/api/.../knowledge-networks", json=body)
     return _parse_kn(data)
@@ -125,6 +171,33 @@ except KWeaverError as exc:
 | DataSource | — | `"已存在" in message` | list(keyword=) + find |
 | RelationType | `"Existed" in error_code` | — | list + find |
 | DataView | `"Existed" in error_code` | — | **UUID 后缀重试 3 次** |
+
+### 复现
+
+```bash
+# 步骤 1：创建一个 KN
+curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"name":"repro_test_kn","branch":"main"}' \
+  "$BASE/api/ontology-manager/v1/knowledge-networks" | python3 -m json.tool
+# 预期：200，返回新建的 KN
+
+# 步骤 2：用完全相同的 body 再创建一次
+curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"name":"repro_test_kn","branch":"main"}' \
+  "$BASE/api/ontology-manager/v1/knowledge-networks"
+# 预期：返回错误，观察 error_code 是否为 "Existed"，HTTP status 是 409 还是 400
+
+# 步骤 3：同样操作对 data-connection
+curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"name":"repro_test_ds","type":"mysql","host":"x","port":3306,"database":"x","account":"x","password":"x"}' \
+  "$BASE/api/data-connection/v1/datasource"
+# 执行两次，对比第二次的错误响应：有无 error_code 字段？message 是中文还是英文？
+
+# 清理
+curl -s -X DELETE -H "Authorization: Bearer $TOKEN" "$BASE/api/ontology-manager/v1/knowledge-networks/$KN_ID"
+```
+
+**预期差异**：ontology-manager 返回 `error_code: "Existed"`，data-connection 不返回 error_code 只有中文 message。
 
 ### 核心问题
 
@@ -170,11 +243,49 @@ SDK 直接 `get(existing_id)` 即可，不需要 list + 遍历。
 SDK 被迫自动生成 `data_properties`，因为 build 引擎需要但 create API 不验证：
 
 ```python
-# object_types.py — 实际代码（3 层 fallback）
+# object_types.py:49-69 — 实际代码（3 层 fallback）
 # 1. 用户显式传了 → 用
 # 2. 从 dataview 拉字段 → 自动生成（含 mapped_field）
 # 3. 都拿不到 → 用 primary_key + display_key 生成最小集
 ```
+
+### 复现
+
+```bash
+# 前提：已有 kn_id 和一个 dataview_id
+
+# 步骤 1：创建 OT，故意不传 data_properties
+curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{
+    "name": "repro_no_dp",
+    "branch": "main",
+    "data_source": {"data_view_id": "'$DV_ID'"},
+    "primary_keys": ["id"],
+    "display_key": "name"
+  }' \
+  "$BASE/api/ontology-manager/v1/knowledge-networks/$KN_ID/object-types"
+# 预期：200 OK — create 不验证，接受了不完整的请求
+
+# 步骤 2：触发 build
+curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{}' \
+  "$BASE/api/ontology-manager/v1/knowledge-networks/$KN_ID/jobs"
+
+# 步骤 3：等待 build 完成后检查状态
+sleep 30
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "$BASE/api/ontology-manager/v1/knowledge-networks/$KN_ID/jobs?limit=1"
+# 预期：build 失败或结果不完整，因为缺少 mapped_field
+
+# 步骤 4：对比 — 用 SDK 创建的 OT（SDK 自动填充了 data_properties + mapped_field）
+kweaver --format json bkn object-type get $KN_ID $OT_ID | python3 -c "
+import sys, json; d=json.load(sys.stdin)
+for dp in d.get('data_properties', []):
+    print(dp.get('name'), '→ mapped_field:', dp.get('mapped_field'))"
+# 预期：每个 data_property 都有 mapped_field 子结构
+```
+
+**预期**：步骤 1 成功但步骤 2-3 build 失败。说明 create API 接受了不完整数据，错误延迟到 build 才暴露。
 
 ### 核心问题
 
@@ -222,6 +333,54 @@ Authorization: Bearer ory_at_XXX
 
 而通过浏览器登录流程（`/api/dip-hub/v1/login` → 提取 `dip.oauth2_token` cookie）获取的 token 调用同一 API 正常。
 
+### 复现
+
+```bash
+# 步骤 1：注册 OAuth2 Client
+CLIENT=$(curl -s -X POST -H "Content-Type: application/json" \
+  -d '{
+    "client_name": "repro-test",
+    "grant_types": ["authorization_code", "refresh_token"],
+    "response_types": ["code"],
+    "scope": "openid offline all",
+    "redirect_uris": ["http://127.0.0.1:9010/callback"]
+  }' \
+  "$BASE/oauth2/clients")
+CLIENT_ID=$(echo $CLIENT | python3 -c "import sys,json; print(json.load(sys.stdin)['client_id'])")
+CLIENT_SECRET=$(echo $CLIENT | python3 -c "import sys,json; print(json.load(sys.stdin)['client_secret'])")
+echo "client_id=$CLIENT_ID"
+
+# 步骤 2：浏览器打开授权 URL（手动完成登录）
+echo "在浏览器中打开："
+echo "$BASE/oauth2/auth?client_id=$CLIENT_ID&response_type=code&scope=openid+offline+all&redirect_uri=http://127.0.0.1:9010/callback&state=test123"
+# 登录后回调 URL 中获取 code 参数
+
+# 步骤 3：用 code 换 token
+CREDENTIALS=$(echo -n "$CLIENT_ID:$CLIENT_SECRET" | base64)
+TOKEN_RESP=$(curl -s -X POST \
+  -H "Authorization: Basic $CREDENTIALS" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=authorization_code&code=$CODE&redirect_uri=http://127.0.0.1:9010/callback" \
+  "$BASE/oauth2/token")
+OAUTH_TOKEN=$(echo $TOKEN_RESP | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+echo "token=$OAUTH_TOKEN"
+# 预期：成功，返回 ory_at_... 格式的 access_token
+
+# 步骤 4：用此 token 调用业务 API
+curl -s -H "Authorization: Bearer $OAUTH_TOKEN" \
+  -H "x-business-domain: bd_public" \
+  "$BASE/api/ontology-manager/v1/knowledge-networks"
+# 预期：401 "oauth info is not active"
+
+# 步骤 5：对比 — 用浏览器登录获取的 token 调用同一 API
+curl -s -H "Authorization: Bearer $BROWSER_TOKEN" \
+  -H "x-business-domain: bd_public" \
+  "$BASE/api/ontology-manager/v1/knowledge-networks"
+# 预期：200 正常
+```
+
+**预期差异**：步骤 3 的 token 和步骤 5 的 token 前缀相同（`ory_at_`），但步骤 4 返回 401，步骤 5 返回 200。
+
 ### 对比实验
 
 | 获取方式 | Token 前缀 | API 调用结果 |
@@ -229,33 +388,11 @@ Authorization: Bearer ory_at_XXX
 | OAuth2 Authorization Code（`/oauth2/token`） | `ory_at_...` | 401 — "oauth info is not active" |
 | 浏览器 Cookie（`dip.oauth2_token`） | `ory_at_...` | 200 — 正常 |
 
-两个 token 格式相同（都是 `ory_at_` 前缀，由同一个 Ory Hydra 实例签发），但只有通过浏览器 cookie 方式获取的才被 API 网关认可。
-
 ### 已排除的因素
 
 - curl 直接调用，排除 SDK 代码问题
 - Token 在换取后立即使用，未过期（`expires_in=3600`）
 - 重新注册 OAuth2 Client 后重试，结果相同
-
-### SDK 中的证据
-
-SDK 有两条认证路径，实现上都是正确的：
-
-```python
-# 路径 A：PasswordAuth（能用）— _auth.py:86-88
-# 通过 Playwright 浏览器登录，提取 dip.oauth2_token cookie
-for cookie in context.cookies():
-    if cookie["name"] == "dip.oauth2_token":
-        token = cookie["value"]
-
-# 路径 B：OAuth2BrowserAuth（401）— _auth.py:402-414
-# 标准 OAuth2 Authorization Code 流程，/oauth2/token 换 token
-resp = httpx.post(f"{self._base_url}/oauth2/token", data={
-    "grant_type": "authorization_code",
-    "code": code,
-    "redirect_uri": redirect_uri,
-})
-```
 
 ### 根因推测
 
