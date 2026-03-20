@@ -112,3 +112,16 @@ def test_client_dry_run_param():
     # POST raises DryRunIntercepted before reaching handler
     with pytest.raises(DryRunIntercepted):
         client._http.post("/api/test", json={"name": "test"})
+
+
+def test_client_close_also_closes_vega():
+    """close() should close both main and vega HttpClient."""
+    def handler(req):
+        return httpx.Response(200, json={"entries": []})
+    transport = httpx.MockTransport(handler)
+    client = KWeaverClient(base_url="https://mock", token="tok", transport=transport, vega_url="http://vega:13014")
+    _ = client.vega  # trigger lazy creation
+    client.close()  # should not raise
+    # Verify vega http was closed (httpx.Client raises after close)
+    with pytest.raises(RuntimeError):
+        client._vega._http._client.get("http://vega:13014/")

@@ -126,6 +126,8 @@ class KWeaverClient:
 
     def close(self) -> None:
         self._http.close()
+        if self._vega is not None:
+            self._vega._http.close()
 
     def __enter__(self) -> KWeaverClient:
         return self
