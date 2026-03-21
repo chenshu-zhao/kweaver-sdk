@@ -8,7 +8,7 @@ description: >-
   "执行 Action"、"有哪些 Agent"、"创建 Agent"、"跟 Agent 对话"、
   "数据源"、"Catalog"、"Vega"、
   "健康检查"、"巡检"等意图时自动使用。
-allowed-tools: Bash(npx kweaver *)
+allowed-tools: Bash(kweaver *), Bash(npx kweaver *)
 argument-hint: [自然语言指令]
 ---
 
@@ -44,23 +44,33 @@ kweaver <command> [subcommand] [options]
 
 ## 命令组总览
 
-| 命令组 | 说明 | 详细参考 |
-|--------|------|---------|
-| `auth` | 认证管理（login/logout/status） | `references/auth.md` |
-| `token` | 打印当前 access token（自动刷新） | — |
-| `bkn` | BKN 知识网络管理、Schema、查询、Action | `references/bkn.md` |
-| `agent` | Agent CRUD、发布、对话 | `references/agent.md` |
-| `ds` | 数据源管理 | `references/ds.md` |
-| `vega` | Vega 可观测平台（catalogs、resources、connector-types、health） | `references/vega.md` |
-| `config` | 平台配置（business domain 等） | `references/config.md` |
-| `context-loader` | MCP 分层检索 | `references/context-loader.md` |
-| `call` | 通用 API 调用 | `references/call.md` |
+| 命令组 | 说明 | 常用命令 | 详细参考 |
+|--------|------|---------|---------|
+| `auth` | 认证管理 | `auth login <url>`, `auth status`, `auth list` | `references/auth.md` |
+| `token` | 打印当前 access token（自动刷新） | `token` | — |
+| `bkn` | BKN 知识网络管理、Schema、查询、Action | `bkn list`, `bkn get <id>`, `bkn search <id> <query>` | `references/bkn.md` |
+| `agent` | Agent CRUD、发布、对话 | `agent list`, `agent get <id>`, `agent chat <id> -m "..."` | `references/agent.md` |
+| `ds` | 数据源管理 | `ds list`, `ds get <id>` | `references/ds.md` |
+| `vega` | Vega 可观测平台 | `vega health`, `vega catalog list`, `vega resource list` | `references/vega.md` |
+| `config` | 平台配置（business domain 等） | `config show`, `config set-bd <uuid>` | `references/config.md` |
+| `context-loader` | MCP 分层检索 | `context-loader config show`, `context-loader kn-search <query>` | `references/context-loader.md` |
+| `call` | 通用 API 调用 | `call <path> [-X POST] [-d '...']` | `references/call.md` |
 
-**按需阅读**：需要具体命令参数或编排示例时，读取对应的 reference 文件。
+**按需阅读**：需要子命令完整参数或编排示例时，读取对应的 reference 文件。
+
+## 调用示例
+
+```
+/kweaver 列出所有知识网络
+/kweaver 查看 Vega 健康状况
+/kweaver 有哪些 Agent
+/kweaver 跟 Agent xxx 对话，问他"今天库存情况"
+/kweaver 搜索知识网络 xxx 中关于"供应链"的内容
+```
 
 ## 注意事项
 
 - **不要自行猜测 business_domain 值**。首次使用时运行 `kweaver config show` 确认当前 business domain。如果返回 `bd_public (default)` 但命令结果为空，可能需要用 `kweaver config set-bd <uuid>` 设置正确的值（从平台 UI 的请求头中获取 `X-Business-Domain`）
 - Action 执行有副作用，执行前向用户确认
-- Token 1 小时过期，SDK 的 `connect()` 和 CLI 的 `ensureValidToken` 自动刷新
-- 如果 refresh token 也失效，提示用户 `kweaver auth login`
+- Token 1 小时过期，CLI 自动刷新；遇到 401 会自动重试一次，无需手动干预
+- 仅当 refresh token 也失效（自动重试仍报 401）时，才提示用户 `kweaver auth login`
