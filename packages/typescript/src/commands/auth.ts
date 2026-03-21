@@ -6,69 +6,50 @@ import {
   getPlatformAlias,
   hasPlatform,
   listPlatforms,
+  loadTokenConfig,
   resolvePlatformIdentifier,
   setCurrentPlatform,
   setPlatformAlias,
 } from "../config/store.js";
-import type { CallbackSession, ClientConfig, TokenConfig } from "../config/store.js";
 import {
-  callLogoutEndpoint,
   ensureValidToken,
   formatHttpError,
-  getStoredAuthSummary,
-  login,
   normalizeBaseUrl,
+  playwrightLogin,
 } from "../auth/oauth.js";
+import { createInterface } from "node:readline";
 
-export function getClientProvisioningMessage(created: boolean): string {
-  return created ? "Registered a new OAuth client." : "Reusing existing OAuth client.";
+function promptInput(question: string): Promise<string> {
+  return new Promise((resolve) => {
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    rl.question(question, (answer) => {
+      rl.close();
+      resolve(answer);
+    });
+  });
 }
 
-export function formatAuthStatusSummary(input: {
-  client: ClientConfig;
-  token: TokenConfig | null;
-  callback: CallbackSession | null;
-  isCurrent?: boolean;
-}): string[] {
-  const lines = [
-    `Config directory: ${getConfigDir()}`,
-    `Platform: ${input.client.baseUrl}`,
-    `Current platform: ${input.isCurrent ? "yes" : "no"}`,
-    `Client ID: ${input.client.clientId}`,
-    `Redirect URI: ${input.client.redirectUri}`,
-    `Token present: ${input.token ? "yes" : "no"}`,
-    `Callback recorded: ${input.callback ? "yes" : "no"}`,
-  ];
-
-  if (input.client.product) {
-    lines.push(`Product: ${input.client.product}`);
-  }
-
-  if (input.client.lang) {
-    lines.push(`Lang: ${input.client.lang}`);
-  }
-
-  if (input.token?.expiresAt) {
-    const expiry = new Date(input.token.expiresAt);
-    const now = new Date();
-    const remainingMs = expiry.getTime() - now.getTime();
-    if (remainingMs > 0) {
-      const remainingMin = Math.ceil(remainingMs / 60_000);
-      lines.push(`Token status: active (expires in ${remainingMin} min, auto-refresh enabled)`);
-    } else {
-      lines.push(`Token status: expired (will auto-refresh on next command)`);
-    }
-  }
-
-  if (input.callback?.receivedAt) {
-    lines.push(`Last callback at: ${input.callback.receivedAt}`);
-  }
-
-  if (input.callback?.scope) {
-    lines.push(`Last callback scope: ${input.callback.scope}`);
-  }
-
-  return lines;
+function promptPassword(question: string): Promise<string> {
+  return new Promise((resolve) => {
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    // Mute output for password
+    const origWrite = process.stdout.write.bind(process.stdout);
+    let prompted = false;
+    process.stdout.write = ((chunk: any, ...args: any[]) => {
+      if (!prompted && typeof chunk === "string" && chunk.includes(question)) {
+        prompted = true;
+        return origWrite(chunk, ...args);
+      }
+      if (prompted) return true as any;
+      return origWrite(chunk, ...args);
+    }) as typeof process.stdout.write;
+    rl.question(question, (answer) => {
+      process.stdout.write = origWrite;
+      console.log(); // newline
+      rl.close();
+      resolve(answer);
+    });
+  });
 }
 
 export async function runAuthCommand(args: string[]): Promise<number> {
@@ -76,11 +57,12 @@ export async function runAuthCommand(args: string[]): Promise<number> {
   const rest = args.slice(1);
 
   if (!target || target === "--help" || target === "-h") {
-    console.log(`kweaver auth <platform-url>  Login to a platform (OAuth browser flow)
+    console.log(`kweaver auth login <url>     Login to a platform (browser login)
+kweaver auth <url>           Login (shorthand)
 kweaver auth status [url]    Show current auth status
 kweaver auth list            List saved platforms
 kweaver auth use <url>       Switch active platform
-kweaver auth logout [url]    Logout (revoke session)
+kweaver auth logout [url]    Logout (clear local token)
 kweaver auth delete <url>    Delete saved credentials`);
     return 0;
   }
@@ -97,49 +79,37 @@ kweaver auth delete <url>    Delete saved credentials`);
   if (target && target !== "status" && target !== "list" && target !== "use" && target !== "delete" && target !== "logout") {
     try {
       const normalizedTarget = normalizeBaseUrl(target);
-      const port = Number(readOption(args, "--port") ?? "9010");
-      const clientName = readOption(args, "--client-name") ?? "kweaver";
       const alias = readOption(args, "--alias");
-      const host = readOption(args, "--host");
-      const redirectUriOverride = readOption(args, "--redirect-uri");
-      const forceRegister = args.includes("--force-register");
-      const open = !args.includes("--no-open");
-      const lang = readOption(args, "--lang") ?? "zh-cn";
-      const product = readOption(args, "--product") ?? "adp";
-      const xForwardedPrefix = readOption(args, "--x-forwarded-prefix") ?? "";
 
-      const result = await login({
-        baseUrl: normalizedTarget,
-        port,
-        clientName,
-        open,
-        forceRegister,
-        host,
-        redirectUriOverride,
-        lang,
-        product,
-        xForwardedPrefix,
-      });
+      const username = await promptInput("Username: ");
+      const password = await promptPassword("Password: ");
+
+      if (!username || !password) {
+        console.error("Username and password are required.");
+        return 1;
+      }
+
+      console.log("Logging in...");
+      const token = await playwrightLogin(normalizedTarget, username, password);
 
       if (alias) {
         setPlatformAlias(normalizedTarget, alias);
       }
 
       console.log(`Config directory: ${getConfigDir()}`);
-      console.log(getClientProvisioningMessage(result.created));
-      console.log(`Client ID: ${result.client.clientId}`);
       if (alias) {
         console.log(`Alias: ${alias.toLowerCase()}`);
       } else {
-        const savedAlias = getPlatformAlias(result.client.baseUrl);
+        const savedAlias = getPlatformAlias(normalizedTarget);
         if (savedAlias) {
           console.log(`Alias: ${savedAlias}`);
         }
       }
-      console.log(`Authorization URL: ${result.authorizationUrl}`);
-      console.log(`Callback received at: ${result.callback.receivedAt}`);
-      console.log(`Current platform: ${result.client.baseUrl}`);
+      console.log(`Current platform: ${normalizedTarget}`);
       console.log(`Access token saved: yes`);
+      if (token.expiresAt) {
+        console.log(`Token expires at: ${token.expiresAt}`);
+      }
       return 0;
     } catch (error) {
       console.error(formatHttpError(error));
@@ -152,29 +122,40 @@ kweaver auth delete <url>    Delete saved credentials`);
     const statusTarget =
       resolvedTarget && /^https?:\/\//.test(resolvedTarget) ? normalizeBaseUrl(resolvedTarget) : resolvedTarget ?? undefined;
 
-    // Try to refresh token before displaying status, so agent never sees stale expiry
-    try {
-      await ensureValidToken();
-    } catch {
-      // Refresh may fail (no token, network error) — continue to show whatever we have
+    const platform = statusTarget ?? getCurrentPlatform();
+    if (!platform) {
+      console.error("No active platform. Run `kweaver auth login <platform-url>` first.");
+      return 1;
     }
 
-    const { client, token, callback } = getStoredAuthSummary(statusTarget);
-
-    if (!client) {
+    const token = loadTokenConfig(platform);
+    if (!token) {
       console.error(
-        statusTarget ? `No saved client config found for ${statusTarget}.` : "No saved client config found."
+        statusTarget ? `No saved token for ${statusTarget}.` : "No saved token found."
       );
       return 1;
     }
 
     const currentPlatform = getCurrentPlatform();
-    for (const line of formatAuthStatusSummary({
-      client,
-      token,
-      callback,
-      isCurrent: currentPlatform === client.baseUrl,
-    })) {
+    const lines = [
+      `Config directory: ${getConfigDir()}`,
+      `Platform: ${token.baseUrl}`,
+      `Current platform: ${token.baseUrl === currentPlatform ? "yes" : "no"}`,
+      `Token present: yes`,
+    ];
+
+    if (token.expiresAt) {
+      const expiry = new Date(token.expiresAt);
+      const remainingMs = expiry.getTime() - Date.now();
+      if (remainingMs > 0) {
+        const remainingMin = Math.ceil(remainingMs / 60_000);
+        lines.push(`Token status: active (expires in ${remainingMin} min)`);
+      } else {
+        lines.push(`Token status: expired (run \`kweaver auth login ${token.baseUrl}\` again)`);
+      }
+    }
+
+    for (const line of lines) {
       console.log(line);
     }
     return 0;
@@ -206,7 +187,7 @@ kweaver auth delete <url>    Delete saved credentials`);
       return 1;
     }
     if (!hasPlatform(useTarget)) {
-      console.error(`No saved client config found for ${useTarget}. Run \`kweaver auth ${useTarget}\` first.`);
+      console.error(`No saved token for ${useTarget}. Run \`kweaver auth login ${useTarget}\` first.`);
       return 1;
     }
     setCurrentPlatform(useTarget);
@@ -223,7 +204,7 @@ kweaver auth delete <url>    Delete saved credentials`);
       return 1;
     }
     if (!hasPlatform(deleteTarget)) {
-      console.error(`No saved client config found for ${deleteTarget}.`);
+      console.error(`No saved token for ${deleteTarget}.`);
       return 1;
     }
 
@@ -243,26 +224,21 @@ kweaver auth delete <url>    Delete saved credentials`);
       resolvedTarget && /^https?:\/\//.test(resolvedTarget) ? normalizeBaseUrl(resolvedTarget) : resolvedTarget;
     if (!logoutTarget) {
       console.error("Usage: kweaver auth logout [platform-url|alias]");
-      console.error("No current platform. Specify a platform to logout, e.g. kweaver auth logout <platform-url|alias>");
+      console.error("No current platform. Specify a platform to logout.");
       return 1;
     }
     if (!hasPlatform(logoutTarget)) {
-      console.error(`No saved client config found for ${logoutTarget}.`);
+      console.error(`No saved token for ${logoutTarget}.`);
       return 1;
-    }
-    const { client, token } = getStoredAuthSummary(logoutTarget);
-    if (client) {
-      await callLogoutEndpoint(client, token);
     }
     clearPlatformSession(logoutTarget);
     console.log(`Logged out: ${logoutTarget}`);
-    console.log(`Run \`kweaver auth ${logoutTarget}\` to sign in again (e.g. as a different user).`);
+    console.log(`Run \`kweaver auth login ${logoutTarget}\` to sign in again.`);
     return 0;
   }
 
-  console.error("Usage: kweaver auth <platform-url>");
-  console.error("       kweaver auth login <platform-url>");
-  console.error("       kweaver auth <platform-url> [--alias <name>] [--no-open] [--host <host>] [--redirect-uri <uri>]");
+  console.error("Usage: kweaver auth login <platform-url>");
+  console.error("       kweaver auth <platform-url> [--alias <name>]");
   console.error("       kweaver auth status [platform-url|alias]");
   console.error("       kweaver auth list");
   console.error("       kweaver auth use <platform-url|alias>");
