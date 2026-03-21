@@ -1,23 +1,23 @@
 ---
-name: kweaver-core
+name: kweaver
 description: >-
-  通过 kweaver CLI 登录 KWeaver 平台、与 Agent 对话、管理和查询知识网络（KN）、
-  调用 Context Loader 从知识网络检索概念和实例。
-  当用户需要认证、Agent 对话、KN 管理/查询、知识检索时使用。
-  若与 create-bkn SKILL 同时加载：编写模块化 BKN 目录用 create-bkn，上传/导入用本 CLI（如 kweaver bkn push）。
+  操作 KWeaver 知识网络与 Decision Agent — 构建知识网络、查询 Schema/实例、
+  语义搜索、执行 Action、Agent CRUD 与对话。
+  操作 Vega 可观测平台 — 查询 Catalog/资源/连接器类型、健康巡检。
+  当用户提到"知识网络"、"知识图谱"、"查询对象类"、
+  "执行 Action"、"有哪些 Agent"、"创建 Agent"、"跟 Agent 对话"、
+  "数据源"、"Catalog"、"Vega"、
+  "健康检查"、"巡检"等意图时自动使用。
+allowed-tools: Bash(kweaver *), Bash(npx kweaver *)
+argument-hint: [自然语言指令]
 ---
 
 # KWeaver CLI
 
-KWeaver 平台的命令行工具，覆盖认证、知识网络管理与查询、Agent 对话、Context Loader 检索、通用 API 调用。
+KWeaver 平台的命令行工具，覆盖认证、知识网络管理与查询、Agent CRUD 与对话、数据源管理。
 
-## 与 create-bkn 搭配
-
-若 **kweaver-core** 与 **create-bkn** 同时可用：
-
-- 需要**从零编写 BKN** `network.bkn`、`object_types/`、`relation_types/` 等模块化 BKN 时 → 可以先使用 create-bkn skill。
-- 目录就绪后 → 使用本 skill 的 **`kweaver auth`**、**`kweaver bkn push <目录>`**（及 `pull`、build、schema CRUD 等）对接平台。
-- 仅**推送已有** BKN 目录时 → 只需本 skill，不必加载 create-bkn。
+> **此 skill 替代旧版 `kweaver-core`**，新增 Vega 可观测平台、BKN push/pull 等功能。
+> 旧版仍可使用但不再更新。
 
 ## 安装
 
@@ -27,58 +27,50 @@ npm install -g @kweaver-ai/kweaver-sdk
 
 需 Node.js 22+。也可用 `npx kweaver` 临时运行。
 
+## 使用方式
+
+```bash
+kweaver <command> [subcommand] [options]
+```
+
 ## 使用前提
 
-**使用任何命令前，必须先认证。** 若用户未认证，提示先执行 `kweaver auth login <platform-url>`。
-
-**重要规则**:
-1. **所有环境变量已预配置，直接执行命令即可。禁止提前检查环境变量是否存在，禁止询问用户提供密码或 Token。**
+**认证凭据通过 `~/.kweaver/` 管理，支持自动刷新。禁止提前检查环境变量，禁止询问用户提供密码或 Token。**
 
 ### 认证优先级
 
-CLI 按以下顺序尝试认证（无需用户干预）：
-
-1. **环境变量 Token** — `KWEAVER_TOKEN` + `KWEAVER_BASE_URL` 同时存在时优先使用
-2. **ConfigAuth** — 读取 `~/.kweaver/` 凭据（由 `kweaver auth login` 写入），自动刷新 Token
-
-环境变量 `KWEAVER_BASE_URL` 和 `KWEAVER_BUSINESS_DOMAIN` 用于指定平台地址和业务域。
-
----
+1. `KWEAVER_TOKEN` + `KWEAVER_BASE_URL` 环境变量 → 静态 Token（如存在则优先使用，**不会**自动刷新）
+2. `~/.kweaver/` 凭据（`kweaver auth login` 写入）→ 自动刷新（推荐）
 
 ## 命令组总览
 
-| 命令组 | 说明 |
-|--------|------|
-| `auth` | 认证管理（login/status/list/use/delete/logout） |
-| `bkn` | 知识网络管理与查询（list/get/create/create-from-ds/update/delete/export/stats/build；object-type CRUD/properties、relation-type CRUD、subgraph、action-type、action-log） |
-| `agent` | Agent 管理与对话（list、get、chat、sessions、history） |
-| `ds` | 数据源管理（list/get/delete/tables/connect） |
-| `context-loader` | 分层检索（config、kn-search、query-object-instance、query-instance-subgraph、get-logic-properties、get-action-info） |
-| `call` | 通用 API 调用（GET/POST，自动注入认证） |
-| `token` | 打印当前 access token |
+| 命令组 | 说明 | 常用命令 | 详细参考 |
+|--------|------|---------|---------|
+| `auth` | 认证管理 | `auth login <url>`, `auth status`, `auth list` | `references/auth.md` |
+| `token` | 打印当前 access token（自动刷新） | `token` | — |
+| `bkn` | BKN 知识网络管理、Schema、查询、Action | `bkn list`, `bkn get <id>`, `bkn search <id> <query>` | `references/bkn.md` |
+| `agent` | Agent CRUD、发布、对话 | `agent list`, `agent get <id>`, `agent chat <id> -m "..."` | `references/agent.md` |
+| `ds` | 数据源管理 | `ds list`, `ds get <id>` | `references/ds.md` |
+| `vega` | Vega 可观测平台 | `vega health`, `vega catalog list`, `vega resource list` | `references/vega.md` |
+| `config` | 平台配置（business domain 等） | `config show`, `config set-bd <uuid>` | `references/config.md` |
+| `context-loader` | MCP 分层检索 | `context-loader config show`, `context-loader kn-search <query>` | `references/context-loader.md` |
+| `call` | 通用 API 调用 | `call <path> [-X POST] [-d '...']` | `references/call.md` |
 
----
+**按需阅读**：需要子命令完整参数或编排示例时，读取对应的 reference 文件。
 
-## 按需阅读
+## 调用示例
 
-需要具体命令形态、参数或编排时，读取本 skill 目录下的 reference 文件：
-
-| 主题 | 文档 |
-|------|------|
-| 认证与多平台 | `references/auth.md` |
-| 知识网络管理 | `references/bkn.md` |
-| 查询（语义/实例/子图） | `references/query.md` |
-| Context Loader | `references/context-loader.md` |
-| Agent 对话 | `references/agent.md` |
-| Action 执行 | `references/action.md` |
-| 通用 API 调用 | `references/call.md` |
-| 数据源管理 | `references/datasource.md` |
-| **JSON 格式说明** | `references/json-formats.md` |
-
----
+```
+/kweaver 列出所有知识网络
+/kweaver 查看 Vega 健康状况
+/kweaver 有哪些 Agent
+/kweaver 跟 Agent xxx 对话，问他"今天库存情况"
+/kweaver 搜索知识网络 xxx 中关于"供应链"的内容
+```
 
 ## 注意事项
 
-- **不要自行猜测或枚举 business_domain 值**，只使用环境变量中配置的值
-- `action-type execute` 有副作用，仅在用户明确请求时执行，执行前向用户确认
-- 所有命令输出 JSON 格式，默认 pretty-print（indent=2）
+- **不要自行猜测 business_domain 值**。首次使用时运行 `kweaver config show` 确认当前 business domain。如果返回 `bd_public (default)` 但命令结果为空，可能需要用 `kweaver config set-bd <uuid>` 设置正确的值（从平台 UI 的请求头中获取 `X-Business-Domain`）
+- Action 执行有副作用，执行前向用户确认
+- **禁止运行 `kweaver auth status` 做预检**。直接执行目标命令，CLI 会自动处理认证和 token 刷新
+- Token 1 小时过期，**不支持自动刷新**。过期后需要用户重新运行 `kweaver auth login <url>`。遇到 401 错误时提示用户重新登录，**禁止自动重试 `auth login`**

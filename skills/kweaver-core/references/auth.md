@@ -1,48 +1,38 @@
-# 认证与多平台切换
+# 认证命令参考
 
-管理 KWeaver 平台认证，支持多平台凭据存储与切换。
+平台认证管理。凭据存储在 `~/.kweaver/`。
 
-## 命令总览
-
-| 命令 | 说明 |
-|------|------|
-| `kweaver auth login <platform-url>` | 登录平台（打开浏览器 OAuth） |
-| `kweaver auth login <platform-url> --alias <name>` | 登录并命名该平台 |
-| `kweaver auth status` | 查看当前平台认证状态 |
-| `kweaver auth list` | 列出已登录的平台 |
-| `kweaver auth use <alias>` | 切换到指定平台 |
-| `kweaver auth delete <alias>` | 删除平台凭据 |
-| `kweaver auth logout` | 登出当前平台 |
-| `kweaver token` | 打印当前 access token |
-
-## 何时使用
-
-- 首次使用 CLI 前必须执行 `auth login`
-- 需要切换不同 KWeaver 实例时使用 `auth use`
-- 调试 API 时可用 `token` 获取 Bearer token
-
-## 用法示例
+## 前提
 
 ```bash
-# 首次登录
-kweaver auth login https://platform.example.com
-
-# 登录多个平台并命名
-kweaver auth login https://prod.example.com --alias prod
-kweaver auth login https://dev.example.com --alias dev
-
-# 查看状态
-kweaver auth status
-kweaver auth list
-
-# 切换平台
-kweaver auth use prod
-
-# 获取 token（用于 curl 等）
-kweaver token
+npm install playwright && npx playwright install chromium
 ```
 
-## 默认策略
+## 命令
 
-- 用户未认证时，提示执行 `kweaver auth login <platform-url>`
-- 多平台场景下，用 `auth list` 确认可用平台，用 `auth use` 切换
+```bash
+kweaver auth login <url> [--alias <name>]      # 输入账号密码登录
+kweaver auth <url> [--alias <name>]             # 同上（简写）
+kweaver auth logout [<platform>]                 # 登出（清除本地 token）
+kweaver auth status                              # 查看 token 状态
+kweaver auth list                                # 列出已保存的平台
+kweaver auth use <platform>                      # 切换平台（URL 或 alias）
+kweaver auth delete <platform> [-y]              # 删除平台凭证
+```
+
+## 说明
+
+- `login` 通过 Playwright headless 浏览器完成登录，提取平台 token
+- Token 有效期 1 小时，过期后需重新 `auth login`
+- 不支持自动刷新
+- 支持多平台，用 `--alias` 设置短名称方便切换
+
+## 示例
+
+```bash
+kweaver auth login https://kweaver.example.com --alias prod
+kweaver auth login https://kweaver-dev.example.com --alias dev
+kweaver auth list
+kweaver auth use prod
+kweaver auth status
+```
