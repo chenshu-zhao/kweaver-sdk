@@ -44,6 +44,13 @@ test("store saves multiple platforms and switches current platform", async () =>
     logoutRedirectUri: "http://127.0.0.1:9010/successful-logout",
     scope: "openid offline all",
   });
+  store.saveTokenConfig({
+    baseUrl: "https://adp.aishu.cn",
+    accessToken: "token-b",
+    tokenType: "bearer",
+    scope: "openid offline all",
+    obtainedAt: "2026-03-11T00:00:00.000Z",
+  });
 
   assert.equal(store.getCurrentPlatform(), "https://dip.aishu.cn");
   assert.equal(store.loadClientConfig("https://dip.aishu.cn")?.clientId, "client-a");
@@ -63,7 +70,7 @@ test("store saves multiple platforms and switches current platform", async () =>
       isCurrent: item.isCurrent,
     })),
     [
-      { baseUrl: "https://adp.aishu.cn", hasToken: false, isCurrent: true },
+      { baseUrl: "https://adp.aishu.cn", hasToken: true, isCurrent: true },
       { baseUrl: "https://dip.aishu.cn", hasToken: true, isCurrent: false },
     ]
   );
@@ -80,6 +87,13 @@ test("store supports aliases and resolves them to platform urls", async () => {
     redirectUri: "http://127.0.0.1:9010/callback",
     logoutRedirectUri: "http://127.0.0.1:9010/successful-logout",
     scope: "openid offline all",
+  });
+  store.saveTokenConfig({
+    baseUrl: "https://dip.aishu.cn",
+    accessToken: "token-a",
+    tokenType: "bearer",
+    scope: "openid offline all",
+    obtainedAt: "2026-03-11T00:00:00.000Z",
   });
   store.setPlatformAlias("https://dip.aishu.cn", "dip");
 
@@ -131,6 +145,13 @@ test("store deletes platform data aliases and resets current platform", async ()
     redirectUri: "http://127.0.0.1:9010/callback",
     logoutRedirectUri: "http://127.0.0.1:9010/successful-logout",
     scope: "openid offline all",
+  });
+  store.saveTokenConfig({
+    baseUrl: "https://adp.aishu.cn",
+    accessToken: "token-b",
+    tokenType: "bearer",
+    scope: "openid offline all",
+    obtainedAt: "2026-03-11T00:00:00.000Z",
   });
 
   store.deletePlatform("https://dip.aishu.cn");
@@ -209,6 +230,13 @@ test("store saves and loads context-loader config per platform", async () => {
     logoutRedirectUri: "http://127.0.0.1:9010/logout",
     scope: "openid",
   });
+  store.saveTokenConfig({
+    baseUrl: "https://dip.aishu.cn",
+    accessToken: "token-x",
+    tokenType: "bearer",
+    scope: "",
+    obtainedAt: "2026-03-11T00:00:00.000Z",
+  });
   store.setCurrentPlatform("https://dip.aishu.cn");
 
   assert.equal(store.loadContextLoaderConfig(), null);
@@ -261,6 +289,13 @@ test("store context-loader supports multiple configs and switch", async () => {
     logoutRedirectUri: "http://127.0.0.1:9010/logout",
     scope: "openid",
   });
+  store.saveTokenConfig({
+    baseUrl: "https://dip.aishu.cn",
+    accessToken: "token-x",
+    tokenType: "bearer",
+    scope: "",
+    obtainedAt: "2026-03-11T00:00:00.000Z",
+  });
   store.setCurrentPlatform("https://dip.aishu.cn");
 
   store.addContextLoaderEntry("https://dip.aishu.cn", "default", "kn-1");
@@ -289,6 +324,13 @@ test("store context-loader migrates legacy format", async () => {
     redirectUri: "http://127.0.0.1:9010/cb",
     logoutRedirectUri: "http://127.0.0.1:9010/logout",
     scope: "openid",
+  });
+  store.saveTokenConfig({
+    baseUrl: "https://dip.aishu.cn",
+    accessToken: "token-x",
+    tokenType: "bearer",
+    scope: "",
+    obtainedAt: "2026-03-11T00:00:00.000Z",
   });
   store.setCurrentPlatform("https://dip.aishu.cn");
 

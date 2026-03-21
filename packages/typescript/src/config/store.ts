@@ -389,8 +389,8 @@ export function getCurrentContextLoaderKn(baseUrl?: string): CurrentContextLoade
   const targetBaseUrl = baseUrl ?? getCurrentPlatform();
   if (!targetBaseUrl) return null;
 
-  const client = loadClientConfig(targetBaseUrl);
-  if (!client?.baseUrl) return null;
+  const token = loadTokenConfig(targetBaseUrl);
+  if (!token?.baseUrl) return null;
 
   const config = loadContextLoaderConfig(targetBaseUrl);
   if (!config) return null;
@@ -399,7 +399,7 @@ export function getCurrentContextLoaderKn(baseUrl?: string): CurrentContextLoade
   if (!entry) return null;
 
   return {
-    mcpUrl: buildMcpUrl(client.baseUrl),
+    mcpUrl: buildMcpUrl(token.baseUrl),
     knId: entry.knId,
   };
 }
@@ -455,22 +455,17 @@ export function removeContextLoaderEntry(baseUrl: string, name: string): void {
 
 export function hasPlatform(baseUrl: string): boolean {
   ensureStoreReady();
-  return existsSync(getPlatformFile(baseUrl, "client.json"));
+  return existsSync(getPlatformFile(baseUrl, "token.json"));
 }
 
 /**
- * Remove token and callback for a platform so the next auth will do a full login.
- * Keeps client config so the same app registration can be reused.
+ * Remove token for a platform so the next auth will do a full login.
  */
 export function clearPlatformSession(baseUrl: string): void {
   ensureStoreReady();
   const tokenFile = getPlatformFile(baseUrl, "token.json");
-  const callbackFile = getPlatformFile(baseUrl, "callback.json");
   if (existsSync(tokenFile)) {
     rmSync(tokenFile, { force: true });
-  }
-  if (existsSync(callbackFile)) {
-    rmSync(callbackFile, { force: true });
   }
 }
 
@@ -507,16 +502,16 @@ export function listPlatforms(): PlatformSummary[] {
       continue;
     }
 
-    const client = readJsonFile<ClientConfig>(join(dirPath, "client.json"));
-    if (!client?.baseUrl) {
+    const token = readJsonFile<TokenConfig>(join(dirPath, "token.json"));
+    if (!token?.baseUrl) {
       continue;
     }
 
     items.push({
-      baseUrl: client.baseUrl,
-      hasToken: existsSync(join(dirPath, "token.json")),
-      isCurrent: client.baseUrl === currentPlatform,
-      alias: getPlatformAlias(client.baseUrl) ?? undefined,
+      baseUrl: token.baseUrl,
+      hasToken: true,
+      isCurrent: token.baseUrl === currentPlatform,
+      alias: getPlatformAlias(token.baseUrl) ?? undefined,
     });
   }
 
