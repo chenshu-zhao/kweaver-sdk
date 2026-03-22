@@ -74,3 +74,20 @@ kweaver <command> [subcommand] [options]
 - Action 执行有副作用，执行前向用户确认
 - **禁止运行 `kweaver auth status` 做预检**。直接执行目标命令，CLI 会自动处理认证和 token 刷新
 - Token 1 小时过期。当 `~/.kweaver/` 中存在 `refresh_token`（通过 OAuth2 登录获得）时，CLI 会**自动刷新**；仅 Playwright cookie 登录（无 `refresh_token`）时需要用户重新运行 `kweaver auth login <url>`。遇到 401 错误时 CLI 会自动尝试刷新，刷新失败才提示用户重新登录
+
+## 查询策略（重要）
+
+**所有 `object-type query` 调用必须遵守以下规则，否则返回数据过大会导致 JSON 截断和解析失败：**
+
+1. **limit 必须 ≤ 30**。CLI 默认 limit=30，**禁止**传入更大的值（如 50、100）。BOM、物料清单、工单等宽表单条记录可达数 KB，30 条即可达到输出上限
+2. **需要更多数据时使用 `search_after` 分页**，不要加大 limit：
+   ```
+   # 第一页
+   kweaver bkn object-type query <kn> <ot> '{"limit":20}'
+   # → 返回 search_after: ["v1","v2","v3"]
+   # 第二页
+   kweaver bkn object-type query <kn> <ot> '{"limit":20,"search_after":["v1","v2","v3"]}'
+   ```
+3. **尽量使用 `condition` 过滤**，缩小返回集：按编号、名称、状态等精确或模糊过滤，避免全表扫描
+4. **优先使用 `==`、`like`、`in` 操作符**（SQL 视图兼容）。`match`/`contain` 仅 OpenSearch 索引支持，SQL 视图下会报错
+5. **历史数据注意**：PR/PO/工单/BOM 等对象类型可能包含大量历史版本。查询时通过日期、单号、状态等条件限定当前批次，避免混入已完工的历史记录
