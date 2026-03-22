@@ -154,7 +154,7 @@ class DataPropertyDetail(BaseModel):
     required: bool = False
     default_value: Any = None
     enum_values: list[str] | None = None
-    mapped_field: str | None = None
+    mapped_field: str | dict[str, Any] | None = None
 
 
 class MappingRule(BaseModel):
