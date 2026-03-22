@@ -706,7 +706,7 @@ export function parseKnObjectTypeQueryArgs(args: string[]): KnObjectTypeQueryOpt
     body.search_after = searchAfter;
   }
   if (typeof body.limit !== "number" || !Number.isFinite(body.limit) || body.limit < 1) {
-    throw new Error("Missing limit. Provide it in body JSON or via --limit <n>.");
+    body.limit = 30;
   }
 
   if (!businessDomain) businessDomain = resolveBusinessDomain();
@@ -1230,6 +1230,12 @@ properties JSON format: {"_instance_identities":[{"<primary-key>":"<value>"}],"p
         body: options.body,
         businessDomain: options.businessDomain,
       });
+      const OUTPUT_WARN_BYTES = 100_000;
+      if (result.length > OUTPUT_WARN_BYTES) {
+        console.error(
+          `[warn] Response is ${(result.length / 1024).toFixed(0)}KB. Use a smaller --limit or --search-after to paginate.`
+        );
+      }
       console.log(formatCallOutput(result, options.pretty));
       return 0;
     }
@@ -1588,6 +1594,11 @@ Query subgraph via ontology-query API. JSON body format see references/json-form
       businessDomain,
       queryType,
     });
+    if (result.length > 100_000) {
+      console.error(
+        `[warn] Response is ${(result.length / 1024).toFixed(0)}KB. Consider narrowing the subgraph query.`
+      );
+    }
     console.log(formatCallOutput(result, pretty));
     return 0;
   } catch (error) {

@@ -505,11 +505,10 @@ test("parseKnObjectTypeQueryArgs allows body omission when --limit is provided",
   assert.deepEqual(JSON.parse(opts.body), { limit: 20 });
 });
 
-test("parseKnObjectTypeQueryArgs requires limit in body or flags", () => {
-  assert.throws(
-    () => parseKnObjectTypeQueryArgs(["kn-123", "pod", '{"condition":{"operation":"and","sub_conditions":[]}}']),
-    /Missing limit/
-  );
+test("parseKnObjectTypeQueryArgs defaults limit to 30 when omitted", () => {
+  const opts = parseKnObjectTypeQueryArgs(["kn-123", "pod", '{"condition":{"operation":"and","sub_conditions":[]}}']);
+  const body = JSON.parse(opts.body);
+  assert.strictEqual(body.limit, 30);
 });
 
 test("parseKnObjectTypeQueryArgs validates --search-after json array", () => {
