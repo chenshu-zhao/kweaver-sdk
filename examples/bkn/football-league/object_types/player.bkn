@@ -22,6 +22,7 @@ tags: [足球, 球员]
 | team_id | 所属球队ID | integer | 当前效力球队 | team_id |
 | age | 年龄 | integer | 球员年龄 | age |
 | market_value | 身价 | decimal | 球员市场价值（百万欧元） | market_value |
+| overall_rating | 综合评分 | decimal | 球员综合表现评分（如 0–100，可按业务口径调整） | overall_rating |
 | contract_until | 合同到期 | date | 合同到期日期 | contract_until |
 | status | 状态 | string | 球员状态（active/injured/suspended/loaned） | status |
 
