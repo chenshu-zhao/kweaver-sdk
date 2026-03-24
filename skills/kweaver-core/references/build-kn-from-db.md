@@ -58,10 +58,19 @@ kweaver bkn object-type query <kn_id> <ot_id> '{"limit":5}'
 
 当数据在本地 CSV 文件中，需要一个 KWeaver 可访问的数据源作为中间存储。
 
+### 前置：确定数据源
+
+用户通常不知道 datasource_id。按以下顺序引导：
+
+1. **先查已有数据源**：`kweaver ds list`，从返回的列表中选一个合适的（看 `type`、`name`、`database_name`）
+2. **如果没有合适的**：帮用户连接一个新的 `kweaver ds connect mysql <host> <port> <db> --account <user> --password <pass>`
+3. **向用户确认**：展示选中的数据源名称和数据库，确认后再执行导入
+
+> 不要直接问用户要 datasource_id，而是帮他们查找和选择。
+
 ### 快速路径（一条命令）
 
 ```bash
-# datasource_id 来自已有数据源（kweaver ds list）或现场连接
 kweaver bkn create-from-csv <datasource_id> --files "*.csv" --name "my-kn"
 
 # 指定表前缀和部分表
