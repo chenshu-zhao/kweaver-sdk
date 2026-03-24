@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { applyObjectTypeMerge, stripObjectTypeForPut } from "../src/commands/bkn.js";
+import {
+  applyObjectTypeMerge,
+  stripObjectTypeForPut,
+  parseObjectTypeCreateArgs,
+  parseRelationTypeCreateArgs,
+} from "../src/commands/bkn.js";
 
 test("stripObjectTypeForPut removes read-only keys", () => {
   const out = stripObjectTypeForPut({
@@ -58,4 +63,60 @@ test("applyObjectTypeMerge sets tags and comment", () => {
   });
   assert.deepEqual(t.tags, ["t1"]);
   assert.equal(t.comment, "c");
+});
+
+// --- parseObjectTypeCreateArgs / parseRelationTypeCreateArgs ---
+
+test("parseObjectTypeCreateArgs places branch inside entry, not top-level", () => {
+  const opts = parseObjectTypeCreateArgs([
+    "kn-001",
+    "--name", "Player",
+    "--dataview-id", "dv-1",
+    "--primary-key", "id",
+    "--display-key", "name",
+    "--branch", "dev",
+  ]);
+  const parsed = JSON.parse(opts.body);
+  assert.equal("branch" in parsed, false, "branch must NOT be a top-level body key");
+  assert.equal(parsed.entries[0].branch, "dev", "branch must be inside each entry");
+});
+
+test("parseObjectTypeCreateArgs defaults branch to main", () => {
+  const opts = parseObjectTypeCreateArgs([
+    "kn-001",
+    "--name", "Player",
+    "--dataview-id", "dv-1",
+    "--primary-key", "id",
+    "--display-key", "name",
+  ]);
+  const parsed = JSON.parse(opts.body);
+  assert.equal(parsed.entries[0].branch, "main");
+  assert.equal(opts.branch, "main");
+});
+
+test("parseRelationTypeCreateArgs places branch inside entry, not top-level", () => {
+  const opts = parseRelationTypeCreateArgs([
+    "kn-001",
+    "--name", "player_belongs_team",
+    "--source", "player",
+    "--target", "team",
+    "--mapping", "team_id:id",
+    "--branch", "feat",
+  ]);
+  const parsed = JSON.parse(opts.body);
+  assert.equal("branch" in parsed, false, "branch must NOT be a top-level body key");
+  assert.equal(parsed.entries[0].branch, "feat", "branch must be inside each entry");
+});
+
+test("parseRelationTypeCreateArgs defaults branch to main", () => {
+  const opts = parseRelationTypeCreateArgs([
+    "kn-001",
+    "--name", "player_belongs_team",
+    "--source", "player",
+    "--target", "team",
+    "--mapping", "team_id:id",
+  ]);
+  const parsed = JSON.parse(opts.body);
+  assert.equal(parsed.entries[0].branch, "main");
+  assert.equal(opts.branch, "main");
 });

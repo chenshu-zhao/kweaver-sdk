@@ -874,7 +874,7 @@ export async function runKnCommand(args: string[]): Promise<number> {
 }
 
 /** Parse object-type create args: --name --dataview-id --primary-key --display-key [--property '<json>' ...] */
-function parseObjectTypeCreateArgs(args: string[]): {
+export function parseObjectTypeCreateArgs(args: string[]): {
   knId: string;
   body: string;
   businessDomain: string;
@@ -937,6 +937,7 @@ function parseObjectTypeCreateArgs(args: string[]): {
   }
 
   const entry: Record<string, unknown> = {
+    branch,
     name,
     data_source: { type: "data_view", id: dataviewId },
     primary_keys: [primaryKey],
@@ -952,7 +953,7 @@ function parseObjectTypeCreateArgs(args: string[]): {
       type: "string",
     }));
   }
-  const body = JSON.stringify({ entries: [entry], branch });
+  const body = JSON.stringify({ entries: [entry] });
 
   if (!businessDomain) businessDomain = resolveBusinessDomain();
   return { knId, body, businessDomain, branch, pretty };
@@ -1564,7 +1565,7 @@ kweaver bkn object-type delete <kn-id> <ot-ids> [-y]`);
 }
 
 /** Parse relation-type create args: --name --source --target [--mapping src:tgt ...] */
-function parseRelationTypeCreateArgs(args: string[]): {
+export function parseRelationTypeCreateArgs(args: string[]): {
   knId: string;
   body: string;
   businessDomain: string;
@@ -1627,6 +1628,7 @@ function parseRelationTypeCreateArgs(args: string[]): {
   }
 
   const entry: Record<string, unknown> = {
+    branch,
     name,
     source_object_type_id: source,
     target_object_type_id: target,
@@ -1636,7 +1638,7 @@ function parseRelationTypeCreateArgs(args: string[]): {
       target_property: { name: t },
     })),
   };
-  const body = JSON.stringify({ entries: [entry], branch });
+  const body = JSON.stringify({ entries: [entry] });
 
   if (!businessDomain) businessDomain = resolveBusinessDomain();
   return { knId, body, businessDomain, branch, pretty };
@@ -2538,6 +2540,7 @@ async function runKnCreateFromDsCommand(args: string[]): Promise<number> {
       const pk = detectPrimaryKey(t);
       const dk = detectDisplayKey(t, pk);
       const entry = {
+        branch: "main",
         name: t.name,
         data_source: { type: "data_view", id: viewMap[t.name] },
         primary_keys: [pk],
@@ -2548,7 +2551,7 @@ async function runKnCreateFromDsCommand(args: string[]): Promise<number> {
           type: "string",
         })),
       };
-      const otBody = JSON.stringify({ entries: [entry], branch: "main" });
+      const otBody = JSON.stringify({ entries: [entry] });
       const otResponse = await createObjectTypes({
         ...base,
         knId,
