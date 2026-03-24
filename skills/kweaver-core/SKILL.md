@@ -33,7 +33,9 @@ npm install -g @kweaver-ai/kweaver-sdk
 kweaver <command> [subcommand] [options]
 ```
 
-**完整子命令与参数以当前安装的 CLI 为准**：运行 `kweaver --help`（或 `-h`）查看与代码同步的用法列表；查版本用 `kweaver --version` / `-V` / `kweaver version`。
+**完整子命令与参数以当前安装的 CLI 为准**：运行 `kweaver --help`（或 `-h`）查看与代码同步的用法列表；查版本用 `kweaver --version` / `-V` / `kweaver version`。子命令细节用 `kweaver <group> <subcommand> --help`（例如 `kweaver auth --help`、`kweaver bkn push --help`）。
+
+本 skill 下的 `references/*.md` 与 CLI 行为对齐；**表格与 reference 为速查**，新增标志（如 `auth` 的 `--alias`、BKN `validate`/`push` 的编码选项）在 reference 中有说明。
 
 **别名**：`kweaver curl` 等同于 `kweaver call`；`kweaver context` 等同于 `kweaver context-loader`。
 
@@ -50,11 +52,11 @@ kweaver <command> [subcommand] [options]
 
 | 命令组 | 说明 | 常用命令 | 详细参考 |
 |--------|------|---------|---------|
-| `auth` | 认证管理 | `auth login <url>`（默认 OAuth2）；无浏览器可用 `-u`/`-p` 或 `--playwright`；`auth status`, `auth list` | `references/auth.md` |
+| `auth` | 认证管理 | `auth login <url> [--alias name]`（简写：`auth <url> [--alias …]`）；可选 `-u`/`-p` 或 `--playwright`；`auth use` / `status` / `logout` / `delete` 支持平台 URL 或别名 | `references/auth.md` |
 | `token` | 打印当前 access token（自动刷新） | `token` | — |
-| `bkn` | BKN 知识网络管理、Schema、查询、Action | `bkn list`, `bkn object-type query …`, `bkn search …`, `bkn push`/`pull`；更多见 `kweaver --help` | `references/bkn.md` |
-| `agent` | Agent CRUD、发布、对话 | `agent list`, `agent get <id>`, `agent chat <id> -m "..."` | `references/agent.md` |
-| `ds` | 数据源管理 | `ds list`, `ds get <id>`, `ds import-csv <id> --files ...` | `references/ds.md` |
+| `bkn` | BKN 知识网络管理、Schema、查询、Action | `bkn validate`/`push` 默认检测 `.bkn` 编码并规范为 UTF-8，可用 `--no-detect-encoding` 或 `--source-encoding gb18030`；另有 `pull`、`object-type`、`search`、`create-from-ds`/`create-from-csv` 等，见 `references/bkn.md` | `references/bkn.md` |
+| `agent` | Agent CRUD、发布、对话 | `agent list`, `agent get <id>`, `agent chat <id> -m "..."`、`agent sessions <agent_id>`、`agent history <conversation_id>` | `references/agent.md` |
+| `ds` | 数据源管理 | `ds list`, `ds get <id>`, `ds import-csv <file> --name <name>` | `references/ds.md` |
 | `vega` | Vega 可观测平台 | `vega health`, `vega catalog list`, `vega resource list` | `references/vega.md` |
 | `config` | 平台配置（business domain 等） | `config show`, `config set-bd <uuid>` | `references/config.md` |
 | `context-loader` | MCP 分层检索 | `context-loader config show`, `context-loader kn-search <query>` | `references/context-loader.md` |

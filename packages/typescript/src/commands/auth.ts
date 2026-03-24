@@ -23,27 +23,37 @@ export async function runAuthCommand(args: string[]): Promise<number> {
   const rest = args.slice(1);
 
   if (!target || target === "--help" || target === "-h") {
-    console.log(`kweaver auth login <url> [options]   Login to a platform (browser OAuth2)
-kweaver auth <url>                   Login (shorthand)
-kweaver auth status [url]            Show current auth status
+    console.log(`kweaver auth login <url> [options]   Login to a platform (browser OAuth2 by default)
+kweaver auth <url>                   Login (shorthand; same options as login)
+kweaver auth status [url|alias]      Show current auth status
 kweaver auth list                    List saved platforms
-kweaver auth use <url>               Switch active platform
-kweaver auth logout [url]            Logout (clear local token)
-kweaver auth delete <url>            Delete saved credentials
+kweaver auth use <url|alias>         Switch active platform
+kweaver auth logout [url|alias]      Logout (clear local token)
+kweaver auth delete <url|alias>      Delete saved credentials
 
 Login options:
+  --alias <name>         Save platform with a short alias (use with use / status / logout)
   --client-id <id>       Use an existing OAuth2 client ID instead of registering a new one.
                          Use the platform's web app client ID to get the same permissions
                          as the browser. Find it in DevTools: /oauth2/auth?client_id=<id>
   --client-secret <s>    Client secret (omit for public/PKCE clients)
-  --alias <name>         Save platform with a short alias`);
+  -u, --username         Username (with -p triggers Playwright headless login)
+  -p, --password         Password
+  --playwright           Force Playwright browser login even without -u/-p`);
+
     return 0;
   }
 
   if (target === "login") {
+    if (rest[0] === "--help" || rest[0] === "-h") {
+      console.log(`kweaver auth login <platform-url> [--alias <name>] [-u user] [-p pass] [--playwright]`);
+      return 0;
+    }
     const url = rest[0];
-    if (!url) {
-      console.error("Usage: kweaver auth login <platform-url>");
+    if (!url || url.startsWith("-")) {
+      console.error(
+        "Usage: kweaver auth login <platform-url> [--alias <name>] [-u user] [-p pass] [--playwright]",
+      );
       return 1;
     }
     return runAuthCommand([url, ...rest.slice(1)]);
@@ -233,8 +243,8 @@ Login options:
     return 0;
   }
 
-  console.error("Usage: kweaver auth login <platform-url>");
-  console.error("       kweaver auth <platform-url> [--alias <name>]");
+  console.error("Usage: kweaver auth login <platform-url> [--alias <name>] [-u user] [-p pass] [--playwright]");
+  console.error("       kweaver auth <platform-url> [--alias <name>] [-u user] [-p pass] [--playwright]");
   console.error("       kweaver auth status [platform-url|alias]");
   console.error("       kweaver auth list");
   console.error("       kweaver auth use <platform-url|alias>");

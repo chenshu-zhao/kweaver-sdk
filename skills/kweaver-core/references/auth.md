@@ -2,6 +2,8 @@
 
 平台认证管理。凭据存储在 `~/.kweaver/`。
 
+与 CLI 一致：运行 `kweaver auth` 或 `kweaver auth login --help` 可查看与当前版本同步的用法（含 `--alias`、`-u`/`-p`、`--playwright`）。
+
 ## 前提
 
 ```bash
@@ -11,13 +13,13 @@ npm install playwright && npx playwright install chromium
 ## 命令
 
 ```bash
-kweaver auth login <url> [--alias <name>]      # 输入账号密码登录
-kweaver auth <url> [--alias <name>]             # 同上（简写）
-kweaver auth logout [<platform>]                 # 登出（清除本地 token）
-kweaver auth status                              # 查看 token 状态
-kweaver auth list                                # 列出已保存的平台
-kweaver auth use <platform>                      # 切换平台（URL 或 alias）
-kweaver auth delete <platform> [-y]              # 删除平台凭证
+kweaver auth login <url> [--alias <name>] [-u user] [-p pass] [--playwright]
+kweaver auth <url> [--alias <name>] [-u user] [-p pass] [--playwright]   # 同上（简写）
+kweaver auth logout [<url|alias>]              # 登出（清除本地 token）
+kweaver auth status [url|alias]                # 查看 token 状态
+kweaver auth list                              # 列出已保存的平台
+kweaver auth use <url|alias>                   # 切换平台
+kweaver auth delete <url|alias> [-y]           # 删除平台凭证
 ```
 
 ## 说明

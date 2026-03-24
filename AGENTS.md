@@ -18,12 +18,12 @@
 | 仓库 / 包 | 职责 |
 |-----------|------|
 | **bkn-specification**（`@kweaver-ai/bkn` / `kweaver-bkn`） | BKN **格式**：解析、校验、目录加载、`CHECKSUM`、`pack_to_tar` 等到**磁盘**的 tar 等。**不要**在此实现 KWeaver 平台 HTTP（上传/下载 BKN）。 |
-| **kweaver-sdk**（`kweaver-sdk` npm / `kweaver-sdk` PyPI） | **平台客户端**：OAuth、KN/BKN 相关 REST、CLI。`bkn push` / `bkn pull` 等平台交互只放在本仓库；需要时用 **BKN SDK** 做本地校验/校验和，用本仓库的 HTTP 与系统 `tar` 完成打包上传。 |
+| **kweaver-sdk**（`kweaver-sdk` npm / `kweaver-sdk` PyPI） | **平台客户端**：OAuth、KN/BKN 相关 REST、CLI。`bkn push` / `bkn pull` 等平台交互只放在本仓库；需要时用 **BKN SDK** 做本地校验/校验和，用本仓库的 HTTP 与系统 `tar` 完成打包上传。`bkn validate` / `bkn push` 可在本仓库对 `.bkn` 做**编码检测与 UTF-8 规范化**（默认开启检测；`--no-detect-encoding` / `--source-encoding`），不替代 **bkn-specification** 的格式解析。 |
 
 ### BKN 规范
 
-- 当前权威版本：**v2.0.0**，以 <https://github.com/kweaver-ai/bkn-specification/blob/main/docs/SPECIFICATION.md> 为准
-- BKN 目录结构采用模块化组织：`network.bkn` 为根，子目录 `object_types/`、`relation_types/`、`action_types/`、`risk_types/`、`concept_groups/`
+- 当前权威版本：**v2.0.1**，以 <https://github.com/kweaver-ai/bkn-specification/blob/main/docs/SPECIFICATION.md> 为准
+- BKN 目录结构采用模块化组织：`network.bkn` 为根，子目录 `object_types/`、`relation_types/`、`action_types/`、`concept_groups/`
 - `CHECKSUM` 文件放在 BKN 目录**内部**（与 `network.bkn` 同级），可选，不影响加载
 - macOS 打包 tar 时必须设置 `COPYFILE_DISABLE=1`，防止 `._*` 元数据文件被打入 tar 导致后端解析失败
 

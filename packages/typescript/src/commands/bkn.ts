@@ -4,6 +4,11 @@ import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, wr
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { loadNetwork, allObjects, allRelations, allActions, generateChecksum, validateNetwork } from "@kweaver-ai/bkn";
+import {
+  prepareBknDirectoryForImport,
+  stripBknEncodingCliArgs,
+  type BknEncodingImportOptions,
+} from "../utils/bkn-encoding.js";
 import { ensureValidToken, formatHttpError, with401RefreshRetry } from "../auth/oauth.js";
 import {
   listKnowledgeNetworks,
@@ -484,16 +489,18 @@ export interface KnPushOptions {
   branch: string;
   businessDomain: string;
   pretty: boolean;
+  encodingOptions: BknEncodingImportOptions;
 }
 
 export function parseKnPushArgs(args: string[]): KnPushOptions {
+  const { rest, options: encodingOptions } = stripBknEncodingCliArgs(args);
   let directory = "";
   let branch = "main";
   let businessDomain = "";
   let pretty = true;
 
-  for (let i = 0; i < args.length; i += 1) {
-    const arg = args[i];
+  for (let i = 0; i < rest.length; i += 1) {
+    const arg = rest[i];
 
     if (arg === "--help" || arg === "-h") {
       throw new Error("help");
@@ -535,7 +542,7 @@ export function parseKnPushArgs(args: string[]): KnPushOptions {
   }
 
   if (!businessDomain) businessDomain = resolveBusinessDomain();
-  return { directory, branch, businessDomain, pretty };
+  return { directory, branch, businessDomain, pretty, encodingOptions };
 }
 
 export interface KnPullOptions {
@@ -793,8 +800,8 @@ Subcommands:
   update <kn-id> [options]  Update a knowledge network
   delete <kn-id>       Delete a knowledge network
   build <kn-id> [--wait|--no-wait] [--timeout n]   Trigger full build
-  validate <directory>   Validate a local BKN directory (no upload)
-  push <directory> [--branch main]   Upload BKN directory as tar
+  validate <directory> [--detect-encoding|--no-detect-encoding] [--source-encoding n]   Validate local BKN (no upload)
+  push <directory> [--branch main] [--detect-encoding|--no-detect-encoding] [--source-encoding n]   Upload BKN as tar
   pull <kn-id> [<directory>] [--branch main]   Download BKN tar and extract
   export <kn-id>       Export knowledge network (alias for get --export)
   stats <kn-id>        Get statistics (alias for get --stats)
@@ -872,7 +879,7 @@ export async function runKnCommand(args: string[]): Promise<number> {
 }
 
 /** Parse object-type create args: --name --dataview-id --primary-key --display-key [--property '<json>' ...] */
-function parseObjectTypeCreateArgs(args: string[]): {
+export function parseObjectTypeCreateArgs(args: string[]): {
   knId: string;
   body: string;
   businessDomain: string;
@@ -935,8 +942,8 @@ function parseObjectTypeCreateArgs(args: string[]): {
   }
 
   const entry: Record<string, unknown> = {
-    name,
     branch,
+    name,
     data_source: { type: "data_view", id: dataviewId },
     primary_keys: [primaryKey],
     display_key: displayKey,
@@ -1563,7 +1570,7 @@ kweaver bkn object-type delete <kn-id> <ot-ids> [-y]`);
 }
 
 /** Parse relation-type create args: --name --source --target [--mapping src:tgt ...] */
-function parseRelationTypeCreateArgs(args: string[]): {
+export function parseRelationTypeCreateArgs(args: string[]): {
   knId: string;
   body: string;
   businessDomain: string;
@@ -1626,8 +1633,8 @@ function parseRelationTypeCreateArgs(args: string[]): {
   }
 
   const entry: Record<string, unknown> = {
-    name,
     branch,
+    name,
     source_object_type_id: source,
     target_object_type_id: target,
     type: "direct",
@@ -2577,8 +2584,8 @@ async function runKnCreateFromDsCommand(
       const dk = detectDisplayKey(t, pk);
       const uniqueProps = [pk, dk].filter((x, i, a) => a.indexOf(x) === i);
       const entry = {
-        name: t.name,
         branch: "main",
+        name: t.name,
         data_source: { type: "data_view", id: viewMap[t.name] },
         primary_keys: [pk],
         display_key: dk,
@@ -2861,7 +2868,15 @@ export function packDirectoryToTar(dirPath: string): Buffer {
     encoding: "buffer",
     env: { ...process.env, COPYFILE_DISABLE: "1" },
   });
-  if (result.error) throw result.error;
+  if (result.error) {
+    if ("code" in result.error && result.error.code === "ENOENT") {
+      throw new Error(
+        "tar executable not found. On Windows, ensure tar.exe is in PATH " +
+        "(ships with Windows 10 1803+) or install GNU tar via Git for Windows / scoop.",
+      );
+    }
+    throw result.error;
+  }
   if (result.status !== 0) {
     throw new Error(`tar pack failed: ${result.stderr?.toString() ?? result.status}`);
   }
@@ -2875,6 +2890,12 @@ export function extractTarToDirectory(tarBuffer: Buffer, dirPath: string): void 
     input: tarBuffer,
   });
   if (result.error) {
+    if ("code" in result.error && result.error.code === "ENOENT") {
+      throw new Error(
+        "tar executable not found. On Windows, ensure tar.exe is in PATH " +
+        "(ships with Windows 10 1803+) or install GNU tar via Git for Windows / scoop.",
+      );
+    }
     throw result.error;
   }
   if (result.status !== 0) {
@@ -2889,7 +2910,10 @@ Pack a BKN directory into a tar and upload to import as a knowledge network.
 Options:
   --branch <s>       Branch name (default: main)
   -bd, --biz-domain  Business domain (default: bd_public)
-  --pretty           Pretty-print JSON output`;
+  --pretty           Pretty-print JSON output
+  --detect-encoding  Detect .bkn encoding and normalize to UTF-8 (default: on)
+  --no-detect-encoding  Do not detect; require UTF-8 .bkn files
+  --source-encoding <name>  Decode all .bkn files with this encoding (e.g. gb18030); overrides detection`;
 
 const KN_PULL_HELP = `kweaver bkn pull <kn-id> [<directory>] [options]
 
@@ -2902,12 +2926,31 @@ Options:
 
 async function runKnValidateCommand(args: string[]): Promise<number> {
   if (args.includes("--help") || args.includes("-h")) {
-    console.log("Usage: kweaver bkn validate <directory>\n\nValidate a local BKN directory without uploading.");
+    console.log(
+      "Usage: kweaver bkn validate <directory> [options]\n\n" +
+        "Validate a local BKN directory without uploading.\n\n" +
+        "Options:\n" +
+        "  --detect-encoding       Detect .bkn encoding and normalize to UTF-8 (default: on)\n" +
+        "  --no-detect-encoding    Require UTF-8 .bkn files\n" +
+        "  --source-encoding <n>   Decode all .bkn with this encoding (e.g. gb18030)",
+    );
     return 0;
   }
-  const directory = args.find((a) => !a.startsWith("-"));
+
+  let encodingOptions: BknEncodingImportOptions;
+  let restArgs: string[];
+  try {
+    const stripped = stripBknEncodingCliArgs(args);
+    encodingOptions = stripped.options;
+    restArgs = stripped.rest;
+  } catch (e) {
+    console.error(e instanceof Error ? e.message : String(e));
+    return 1;
+  }
+
+  const directory = restArgs.find((a) => !a.startsWith("-"));
   if (!directory) {
-    console.error("Missing directory. Usage: kweaver bkn validate <directory>");
+    console.error("Missing directory. Usage: kweaver bkn validate <directory> [options]");
     return 1;
   }
 
@@ -2926,8 +2969,9 @@ async function runKnValidateCommand(args: string[]): Promise<number> {
     throw err;
   }
 
+  const prepared = prepareBknDirectoryForImport(absDir, encodingOptions);
   try {
-    const network = await loadNetwork(absDir);
+    const network = await loadNetwork(prepared.dir);
     const result = validateNetwork(network);
     if (!result.ok) {
       for (const e of result.errors) console.error(`  - ${e}`);
@@ -2944,6 +2988,8 @@ async function runKnValidateCommand(args: string[]): Promise<number> {
   } catch (error) {
     console.error(`BKN validation failed: ${error instanceof Error ? error.message : String(error)}`);
     return 1;
+  } finally {
+    prepared.cleanup();
   }
 }
 
@@ -2975,42 +3021,48 @@ async function runKnPushCommand(args: string[]): Promise<number> {
     throw err;
   }
 
+  const prepared = prepareBknDirectoryForImport(absDir, options.encodingOptions);
+  const workDir = prepared.dir;
   try {
-    const network = await loadNetwork(absDir);
-    const objs = allObjects(network);
-    const rels = allRelations(network);
-    const acts = allActions(network);
-    console.error(
-      `Validated: ${objs.length} object types, ${rels.length} relation types, ${acts.length} action types`
-    );
-  } catch (error) {
-    console.error(`BKN validation failed: ${error instanceof Error ? error.message : String(error)}`);
-    return 1;
-  }
+    try {
+      const network = await loadNetwork(workDir);
+      const objs = allObjects(network);
+      const rels = allRelations(network);
+      const acts = allActions(network);
+      console.error(
+        `Validated: ${objs.length} object types, ${rels.length} relation types, ${acts.length} action types`
+      );
+    } catch (error) {
+      console.error(`BKN validation failed: ${error instanceof Error ? error.message : String(error)}`);
+      return 1;
+    }
 
-  try {
-    await generateChecksum(absDir);
-    console.error("Checksum generated");
-  } catch (error) {
-    console.error(`Checksum generation failed: ${error instanceof Error ? error.message : String(error)}`);
-    return 1;
-  }
+    try {
+      await generateChecksum(workDir);
+      console.error("Checksum generated");
+    } catch (error) {
+      console.error(`Checksum generation failed: ${error instanceof Error ? error.message : String(error)}`);
+      return 1;
+    }
 
-  try {
-    const tarBuffer = packDirectoryToTar(absDir);
-    const token = await ensureValidToken();
-    const body = await uploadBkn({
-      baseUrl: token.baseUrl,
-      accessToken: token.accessToken,
-      tarBuffer,
-      businessDomain: options.businessDomain,
-      branch: options.branch,
-    });
-    console.log(formatCallOutput(body, options.pretty));
-    return 0;
-  } catch (error) {
-    console.error(formatHttpError(error));
-    return 1;
+    try {
+      const tarBuffer = packDirectoryToTar(workDir);
+      const token = await ensureValidToken();
+      const body = await uploadBkn({
+        baseUrl: token.baseUrl,
+        accessToken: token.accessToken,
+        tarBuffer,
+        businessDomain: options.businessDomain,
+        branch: options.branch,
+      });
+      console.log(formatCallOutput(body, options.pretty));
+      return 0;
+    } catch (error) {
+      console.error(formatHttpError(error));
+      return 1;
+    }
+  } finally {
+    prepared.cleanup();
   }
 }
 
