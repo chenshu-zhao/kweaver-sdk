@@ -2,6 +2,8 @@
 
 知识网络管理：schema CRUD、构建、导出、推送/拉取。
 
+与 CLI 一致：运行 `kweaver bkn`、`kweaver bkn validate --help`、`kweaver bkn push --help` 可查看与当前版本同步的用法（含 `validate`/`push` 的编码相关选项）。
+
 ## 概览
 
 ```bash

@@ -2,6 +2,8 @@
 
 Decision Agent CRUD、发布管理与对话。
 
+与 CLI 一致：运行 `kweaver agent` 或 `kweaver agent chat --help` 等可查看与当前版本同步的用法。`history` 的参数为 **conversation_id**（由 `agent sessions` 返回），不是 `agent_id` + `session_id` 两个参数。
+
 ## CRUD 命令
 
 ```bash

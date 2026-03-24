@@ -2,6 +2,8 @@
 
 平台认证管理。凭据存储在 `~/.kweaver/`。
 
+与 CLI 一致：运行 `kweaver auth` 或 `kweaver auth login --help` 可查看与当前版本同步的用法（含 `--alias`、`-u`/`-p`、`--playwright`）。
+
 ## 前提
 
 ```bash
