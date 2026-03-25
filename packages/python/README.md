@@ -104,6 +104,7 @@ client = KWeaverClient(auth=ConfigAuth(), dry_run=True)
 | Query | `client.query` | `semantic_search`, `instances`, `instances_iter`, `kn_search`, `subgraph` |
 | Agents | `client.agents` | `list`, `get`, `get_by_key`, `create`, `update`, `delete`, `publish`, `unpublish` |
 | Conversations | `client.conversations` | `send_message`, `list_messages` |
+| Dataflows | `client.dataflows` | `create`, `run`, `poll`, `delete`, `execute` |
 
 ### Vega (Data Platform)
 

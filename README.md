@@ -136,6 +136,20 @@ const graph     = await client.bkn.querySubgraph("bkn-id", { /* path spec */ });
 await client.bkn.executeAction("bkn-id", "at-id", { /* params */ });
 const logs      = await client.bkn.listActionLogs("bkn-id");
 
+// Data sources & data views
+const dsList = await client.datasources.list();
+const tables = await client.datasources.listTables("ds-id");
+const viewId = await client.dataviews.create({ name: "v", datasourceId: "ds-id", table: "orders" });
+
+// Dataflow automation (CSV import pipeline, etc.)
+const result = await client.dataflows.execute({
+  title: "import", trigger_config: { operator: "manual" },
+  steps: [{ id: "s1", title: "load", operator: "csv_import", parameters: {} }],
+});
+
+// Vega observability
+const catalogs = await client.vega.listCatalogs();
+
 // Context Loader (semantic search over a knowledge network)
 const cl      = client.contextLoader(mcpUrl, "bkn-id");
 const results = await cl.search({ query: "hypertension treatment" });
@@ -186,6 +200,12 @@ print(msg.content)
 # BKN engine — instance queries and action execution
 instances = client.query.instances("bkn-id", "ot-id", limit=20)
 result    = client.action_types.execute("bkn-id", "at-id", params={})
+
+# Dataflow automation
+from kweaver.resources.dataflows import DataflowStep
+result = client.dataflows.execute(
+    title="import", steps=[DataflowStep(id="s1", title="load", operator="csv_import")],
+)
 ```
 
 ## CLI Quick Reference
@@ -193,20 +213,27 @@ result    = client.action_types.execute("bkn-id", "at-id", params={})
 ```bash
 kweaver auth login <url> [--alias name] [-u user] [-p pass] [--playwright] [--insecure|-k] — also: status, list, use, delete, logout
 kweaver token
+kweaver config show / set-bd <value>
+kweaver ds list/get/delete/tables/connect
+kweaver ds import-csv <ds_id> --files <glob> [--table-prefix <p>] [--batch-size 500]
 kweaver bkn list/get/stats/export/create/update/delete
+kweaver bkn create-from-ds <ds_id> --name <name> [--tables t1,t2] [--build]
+kweaver bkn create-from-csv <ds_id> --files <glob> --name <name> [--build]
+kweaver bkn validate/push/pull
 kweaver bkn object-type list/get/create/update/delete/query/properties
 kweaver bkn relation-type list/get/create/update/delete
 kweaver bkn action-type list/query/execute
-kweaver bkn subgraph
+kweaver bkn subgraph / search
 kweaver bkn action-execution get
 kweaver bkn action-log list/get/cancel
-kweaver agent list/get/chat/sessions/history
+kweaver agent list/get/create/update/delete/chat/sessions/history/publish/unpublish
+kweaver vega health/stats/inspect/catalog/resource/connector-type
 kweaver context-loader config set/use/list/show
 kweaver context-loader kn-search/query-object-instance/...
 kweaver call <path> [-X METHOD] [-d BODY] [-H header] [-bd domain]
 ```
 
-Python CLI also provides: `kweaver ds` (data sources), `kweaver query` (semantic search, instances, subgraph), `kweaver action` (orchestration).
+Python CLI also provides: `kweaver query` (semantic search, instances, subgraph), `kweaver action` (orchestration). TypeScript CLI additionally provides: `kweaver config`, `kweaver vega`, `kweaver ds import-csv`, `kweaver bkn create-from-csv`, and full agent CRUD.
 
 ## Repository Structure (Monorepo)
 

@@ -7,8 +7,12 @@ import { ensureValidToken } from "./auth/oauth.js";
 import { AgentsResource } from "./resources/agents.js";
 import { ConversationsResource } from "./resources/conversations.js";
 import { ContextLoaderResource } from "./resources/context-loader.js";
+import { DataflowsResource } from "./resources/dataflows.js";
+import { DataSourcesResource } from "./resources/datasources.js";
+import { DataViewsResource } from "./resources/dataviews.js";
 import { KnowledgeNetworksResource } from "./resources/knowledge-networks.js";
 import { BknResource } from "./resources/bkn.js";
+import { VegaResource } from "./resources/vega.js";
 
 // ── ClientContext ─────────────────────────────────────────────────────────────
 
@@ -97,6 +101,18 @@ export class KWeaverClient implements ClientContext {
   /** Conversation and message history. */
   readonly conversations: ConversationsResource;
 
+  /** Dataflow DAG automation (create/run/poll/delete). */
+  readonly dataflows: DataflowsResource;
+
+  /** Data source management (connect, test, list tables). */
+  readonly datasources: DataSourcesResource;
+
+  /** Data view creation and retrieval. */
+  readonly dataviews: DataViewsResource;
+
+  /** Vega observability platform (catalogs, resources, connector types). */
+  readonly vega: VegaResource;
+
   constructor(opts: KWeaverClientOptions = {}) {
     const envDomain = process.env.KWEAVER_BUSINESS_DOMAIN;
 
@@ -155,6 +171,10 @@ export class KWeaverClient implements ClientContext {
     this.agents = new AgentsResource(this);
     this.bkn = new BknResource(this);
     this.conversations = new ConversationsResource(this);
+    this.dataflows = new DataflowsResource(this);
+    this.datasources = new DataSourcesResource(this);
+    this.dataviews = new DataViewsResource(this);
+    this.vega = new VegaResource(this);
   }
 
   /**

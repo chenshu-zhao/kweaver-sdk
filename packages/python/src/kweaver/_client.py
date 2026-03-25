@@ -14,6 +14,7 @@ from kweaver._middleware.dry_run import DryRunMiddleware
 from kweaver.resources.agents import AgentsResource
 from kweaver.resources.concept_groups import ConceptGroupsResource
 from kweaver.resources.conversations import ConversationsResource
+from kweaver.resources.dataflows import DataflowsResource
 from kweaver.resources.datasources import DataSourcesResource
 from kweaver.resources.dataviews import DataViewsResource
 from kweaver.resources.knowledge_networks import KnowledgeNetworksResource
@@ -94,6 +95,7 @@ class KWeaverClient:
         self._timeout = timeout
         self._log_requests = log_requests or debug
 
+        self.dataflows = DataflowsResource(self._http)
         self.datasources = DataSourcesResource(self._http)
         self.dataviews = DataViewsResource(self._http)
         self.knowledge_networks = KnowledgeNetworksResource(self._http)
