@@ -16,9 +16,6 @@ argument-hint: [自然语言指令]
 
 KWeaver 平台的命令行工具，覆盖认证、知识网络管理与查询、Agent CRUD 与对话、数据源管理。
 
-> **此 skill 替代旧版 `kweaver-core`**，新增 Vega 可观测平台、BKN push/pull 等功能。
-> 旧版仍可使用但不再更新。
-
 ## 安装
 
 ```bash
@@ -73,11 +70,11 @@ kweaver <command> [subcommand] [options]
 ## 调用示例
 
 ```
-/kweaver 列出所有知识网络
-/kweaver 查看 Vega 健康状况
-/kweaver 有哪些 Agent
-/kweaver 跟 Agent xxx 对话，问他"今天库存情况"
-/kweaver 搜索知识网络 xxx 中关于"供应链"的内容
+/kweaver-core 列出所有知识网络
+/kweaver-core 查看 Vega 健康状况
+/kweaver-core 有哪些 Agent
+/kweaver-core 跟 Agent xxx 对话，问他"今天库存情况"
+/kweaver-core 搜索知识网络 xxx 中关于"供应链"的内容
 ```
 
 ## 注意事项
@@ -87,25 +84,6 @@ kweaver <command> [subcommand] [options]
 - **禁止运行 `kweaver auth status` 做预检**。直接执行目标命令，CLI 会自动处理认证和 token 刷新
 - Token 1 小时过期。当 `~/.kweaver/` 中存在 `refresh_token`（通过 OAuth2 登录获得）时，CLI 会**自动刷新**；仅 Playwright cookie 登录（无 `refresh_token`）时需要用户重新运行 `kweaver auth login <url>`。遇到 401 错误时 CLI 会自动尝试刷新，刷新失败才提示用户重新登录
 
-## 查询策略（重要）
+## 查询策略（object-type query）
 
-**所有 `object-type query` 调用必须遵守以下规则，否则返回数据过大会导致 JSON 截断和解析失败：**
-
-1. **limit 不要超过 30**。CLI 默认 limit=30。字段多的宽表建议 limit 10~20，按实际单条记录大小调整
-2. **需要更多数据时使用 `search_after` 分页**，不要加大 limit：
-   ```
-   # 第一页
-   kweaver bkn object-type query <kn> <ot> '{"limit":20}'
-   # → 返回 search_after: ["v1","v2","v3"]
-   # 第二页
-   kweaver bkn object-type query <kn> <ot> '{"limit":20,"search_after":["v1","v2","v3"]}'
-   ```
-3. **尽量使用 `condition` 过滤**，缩小返回集：按编号、名称、状态等精确或模糊过滤，避免全表扫描
-4. **优先使用 `==`、`like`、`in` 操作符**（SQL 视图兼容）。`match`/`contain` 仅 OpenSearch 索引支持，SQL 视图下会报错
-5. **自动裁剪**：当查询结果超过 100KB 时，CLI 会自动裁剪 `datas` 数组并附加 `_truncated` 字段。如果返回中包含 `_truncated`，按其中的 `hint` 提示执行下一轮查询：
-   ```json
-   {"_truncated": {"returned": 176, "total_fetched": 200, "remaining": 24,
-     "next_search_after": ["v1","v2","v3"],
-     "hint": "Pass --search-after '[...]' --limit 176 to fetch the next page."}}
-   ```
-   直接使用 `next_search_after` 的值作为下一次查询的 `--search-after` 参数即可
+调用 `object-type query` 时必须限制 `limit`、用 `search_after` 分页、用 `condition` 过滤，避免宽表 JSON 截断。完整规则与示例见 [`references/bkn.md`](references/bkn.md#object-type-query-strategy-for-llm-and-agent)。
