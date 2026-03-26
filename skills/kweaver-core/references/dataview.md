@@ -8,10 +8,11 @@
 kweaver dataview list [--datasource-id <id>] [--type <atomic|custom>] [--limit <n>] [-bd value] [--pretty]
 kweaver dataview find --name <name> [--exact] [--datasource-id <id>] [--wait] [--no-wait] [--timeout <ms>] [-bd value] [--pretty]
 kweaver dataview get <id> [-bd value] [--pretty]
-kweaver dataview query <id> [--sql <sql>] [--limit <n>] [--offset <n>] [--need-total] [-bd value] [--pretty]   # TypeScript CLI
-kweaver dataview query <view_id> [--sql/-s <sql>] [--limit N] [--offset N] [--need-total]   # Python CLI
+kweaver dataview query <id> [--sql <sql>] [--limit <n>] [--offset <n>] [--need-total] [-bd value] [--pretty]
 kweaver dataview delete <id> [-y] [-bd value]
 ```
+
+（Python 安装的 CLI 上，`query` 的 `--sql` 可简写为 `-s`。）
 
 **`query`**：对指定数据视图执行 SQL 查询，走平台 **mdl-uniquery** `POST /api/mdl-uniquery/v1/data-views/:id`。省略 `--sql` 时使用视图自身保存的 SQL。
 
@@ -37,36 +38,6 @@ kweaver dataview delete <id> [-y] [-bd value]
 
 后端仅提供 `keyword` 模糊参数；**精确匹配** 由客户端在 keyword 结果上过滤实现。
 
-## SDK（TypeScript）
-
-```ts
-const all = await client.dataviews.list({ datasourceId: "ds-id" });
-const fuzzy = await client.dataviews.find("BOM", { wait: false });
-const exact = await client.dataviews.find("orders", {
-  datasourceId: "ds-id",
-  exact: true,
-  wait: true,
-});
-const rows = await client.dataviews.query("view-id", {
-  sql: "SELECT id, name FROM t WHERE status = 'active'",
-  limit: 100,
-  offset: 0,
-  needTotal: true,
-});
-```
-
-## SDK（Python）
-
-```python
-rows = client.dataviews.query(
-    "view-id",
-    sql="SELECT id, name FROM t WHERE status = 'active'",
-    limit=100,
-    offset=0,
-    need_total=True,
-)
-```
-
 ## 端到端示例
 
 ```bash
@@ -82,13 +53,24 @@ kweaver dataview find --name 产品信息 --exact --datasource-id <ds-uuid> --no
 # 精确名称 + 轮询等待（与 create-from-ds 内部行为一致）
 kweaver dataview find --name orders --exact --datasource-id <ds-uuid> --wait --pretty
 
+# 获取视图详情
+kweaver dataview get <view-id> --pretty
+
 # 对视图执行 SQL（或省略 --sql 使用视图默认 SQL）
 kweaver dataview query <view-id> --sql "SELECT * FROM my_table LIMIT 10" --pretty
 ```
 
 ## 与 BKN 的关系
 
-- `kweaver bkn create-from-ds`：对每张目标表会先 **`findDataView`（exact + wait）**，已有则复用视图 ID，否则再 **create** 原子视图。调试可单独用 `kweaver dataview find`。
+- 数据视图通过 Object Type 的 `Data Source` 段绑定：在 `.bkn` 文件中声明 `type = data_view`，填入视图 ID 和名称即可关联。
+
+### 知识网络 → SQL JOIN（高级用法）
+
+1. `kweaver bkn relation-type list <kn-id>`：看每条关系的 `mapping_rules`（源/目标属性名即 JOIN 键）。
+2. `kweaver dataview get <view-id>`：取参与表的 `meta_table_name`（`catalog."schema"."table"`）；多表须**同一数据源**。
+3. `kweaver dataview query <任一视图id> --sql '... JOIN ... ON <键> ...'`：表名用 `meta_table_name`，键与 KN 一致即可。
+
+若 JOIN 无行，多为样例外键与模型不一致（例如订单头/行 ID 前缀混用）；可换 KN 中已对齐数据的关系（如 BOM 头/行按 `bomId`）验证。
 
 ## 排障
 
