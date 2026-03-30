@@ -1,8 +1,12 @@
+import { createInterface } from "node:readline";
 import { ensureValidToken, formatHttpError, with401RefreshRetry } from "../auth/oauth.js";
 import {
   vegaHealth,
   listVegaCatalogs,
   getVegaCatalog,
+  createVegaCatalog,
+  updateVegaCatalog,
+  deleteVegaCatalogs,
   vegaCatalogHealthStatus,
   testVegaCatalogConnection,
   discoverVegaCatalog,
@@ -34,6 +38,9 @@ Subcommands:
   catalog test-connection <id>        Test catalog connectivity
   catalog discover <id> [--wait]      Trigger discovery
   catalog resources <id> [--category X] [--limit N]
+  catalog create --name <n> --connector-type <t> --connector-config <json>
+  catalog update <id> [--name X] [--tags X] [--description X]
+  catalog delete <ids...> [-y]
   resource list [--catalog-id X] [--category X] [--status X] [--limit N] [--offset N]
   resource get <id>
   resource query <id> -d <json-body>  Query resource data
@@ -73,6 +80,17 @@ function parseCommonFlags(args: string[]): {
 
   if (!businessDomain) businessDomain = resolveBusinessDomain();
   return { remaining, businessDomain, pretty };
+}
+
+function confirmYes(prompt: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    rl.question(`${prompt} [y/N] `, (answer) => {
+      rl.close();
+      const trimmed = answer.trim().toLowerCase();
+      resolve(trimmed === "y" || trimmed === "yes");
+    });
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -228,7 +246,10 @@ Subcommands:
   health <ids...> | --all
   test-connection <id>
   discover <id> [--wait]
-  resources <id> [--category X] [--limit N]`);
+  resources <id> [--category X] [--limit N]
+  create --name <name> --connector-type <type> --connector-config <json> [--tags t1,t2] [--description X]
+  update <id> [--name X] [--tags X] [--description X] [--connector-config X]
+  delete <ids...> [-y]`);
     return 0;
   }
 
@@ -238,6 +259,9 @@ Subcommands:
   if (sub === "test-connection") return await runCatalogTestConnection(rest);
   if (sub === "discover") return await runCatalogDiscover(rest);
   if (sub === "resources") return await runCatalogResources(rest);
+  if (sub === "create") return await runCatalogCreate(rest);
+  if (sub === "update") return await runCatalogUpdate(rest);
+  if (sub === "delete") return await runCatalogDelete(rest);
 
   console.error(`Unknown catalog subcommand: ${sub}`);
   return 1;
@@ -478,6 +502,199 @@ Options:
     businessDomain,
   });
   console.log(formatCallOutput(body, pretty));
+  return 0;
+}
+
+// ---------------------------------------------------------------------------
+// catalog create
+// ---------------------------------------------------------------------------
+
+async function runCatalogCreate(args: string[]): Promise<number> {
+  if (args.includes("--help") || args.includes("-h")) {
+    console.log(`kweaver vega catalog create [options]
+
+Options:
+  --name <s>              Catalog name (required)
+  --connector-type <s>    Connector type (required)
+  --connector-config <j>  Connector config JSON (required)
+  --tags <t1,t2>          Comma-separated tags
+  --description <s>       Description`);
+    return 0;
+  }
+
+  let name: string | undefined;
+  let connectorType: string | undefined;
+  let connectorConfig: string | undefined;
+  let tags: string | undefined;
+  let description: string | undefined;
+  const { remaining, businessDomain, pretty } = parseCommonFlags(args);
+
+  for (let i = 0; i < remaining.length; i += 1) {
+    const arg = remaining[i];
+    if (arg === "--name" && remaining[i + 1]) {
+      name = remaining[++i];
+      continue;
+    }
+    if (arg === "--connector-type" && remaining[i + 1]) {
+      connectorType = remaining[++i];
+      continue;
+    }
+    if (arg === "--connector-config" && remaining[i + 1]) {
+      connectorConfig = remaining[++i];
+      continue;
+    }
+    if (arg === "--tags" && remaining[i + 1]) {
+      tags = remaining[++i];
+      continue;
+    }
+    if (arg === "--description" && remaining[i + 1]) {
+      description = remaining[++i];
+      continue;
+    }
+  }
+
+  if (!name || !connectorType || !connectorConfig) {
+    console.error("Usage: kweaver vega catalog create --name <name> --connector-type <type> --connector-config <json>");
+    return 1;
+  }
+
+  const payload: Record<string, unknown> = {
+    name,
+    connector_type: connectorType,
+    connector_config: JSON.parse(connectorConfig),
+  };
+  if (tags) payload.tags = tags.split(",");
+  if (description) payload.description = description;
+
+  const token = await ensureValidToken();
+  const body = await createVegaCatalog({
+    baseUrl: token.baseUrl,
+    accessToken: token.accessToken,
+    body: JSON.stringify(payload),
+    businessDomain,
+  });
+  console.log(formatCallOutput(body, pretty));
+  return 0;
+}
+
+// ---------------------------------------------------------------------------
+// catalog update
+// ---------------------------------------------------------------------------
+
+async function runCatalogUpdate(args: string[]): Promise<number> {
+  if (args.includes("--help") || args.includes("-h")) {
+    console.log(`kweaver vega catalog update <id> [options]
+
+Options:
+  --name <s>              New name
+  --tags <t1,t2>          Comma-separated tags
+  --description <s>       Description
+  --connector-config <j>  Connector config JSON`);
+    return 0;
+  }
+
+  let name: string | undefined;
+  let tags: string | undefined;
+  let description: string | undefined;
+  let connectorConfig: string | undefined;
+  const { remaining, businessDomain, pretty } = parseCommonFlags(args);
+
+  const positionals: string[] = [];
+  for (let i = 0; i < remaining.length; i += 1) {
+    const arg = remaining[i];
+    if (arg === "--name" && remaining[i + 1]) {
+      name = remaining[++i];
+      continue;
+    }
+    if (arg === "--tags" && remaining[i + 1]) {
+      tags = remaining[++i];
+      continue;
+    }
+    if (arg === "--description" && remaining[i + 1]) {
+      description = remaining[++i];
+      continue;
+    }
+    if (arg === "--connector-config" && remaining[i + 1]) {
+      connectorConfig = remaining[++i];
+      continue;
+    }
+    if (!arg.startsWith("-")) {
+      positionals.push(arg);
+    }
+  }
+
+  const id = positionals[0];
+  if (!id) {
+    console.error("Usage: kweaver vega catalog update <id> [--name X] [--tags X] [--description X] [--connector-config X]");
+    return 1;
+  }
+
+  const payload: Record<string, unknown> = {};
+  if (name) payload.name = name;
+  if (tags) payload.tags = tags.split(",");
+  if (description) payload.description = description;
+  if (connectorConfig) payload.connector_config = JSON.parse(connectorConfig);
+
+  const token = await ensureValidToken();
+  const body = await updateVegaCatalog({
+    baseUrl: token.baseUrl,
+    accessToken: token.accessToken,
+    id,
+    body: JSON.stringify(payload),
+    businessDomain,
+  });
+  console.log(formatCallOutput(body || "{}", pretty));
+  return 0;
+}
+
+// ---------------------------------------------------------------------------
+// catalog delete
+// ---------------------------------------------------------------------------
+
+async function runCatalogDelete(args: string[]): Promise<number> {
+  if (args.includes("--help") || args.includes("-h")) {
+    console.log(`kweaver vega catalog delete <ids...> [-y]
+
+Options:
+  -y, --yes   Skip confirmation`);
+    return 0;
+  }
+
+  let skipConfirm = false;
+  const { remaining, businessDomain } = parseCommonFlags(args);
+
+  const positionals: string[] = [];
+  for (let i = 0; i < remaining.length; i += 1) {
+    const arg = remaining[i];
+    if (arg === "-y" || arg === "--yes") {
+      skipConfirm = true;
+      continue;
+    }
+    if (!arg.startsWith("-")) {
+      positionals.push(arg);
+    }
+  }
+
+  if (positionals.length === 0) {
+    console.error("Usage: kweaver vega catalog delete <ids...> [-y]");
+    return 1;
+  }
+
+  const ids = positionals.join(",");
+
+  if (!skipConfirm) {
+    const ok = await confirmYes(`Delete catalog(s) ${ids}?`);
+    if (!ok) return 0;
+  }
+
+  const token = await ensureValidToken();
+  await deleteVegaCatalogs({
+    baseUrl: token.baseUrl,
+    accessToken: token.accessToken,
+    ids,
+    businessDomain,
+  });
+  console.error(`Deleted ${ids}`);
   return 0;
 }
 
