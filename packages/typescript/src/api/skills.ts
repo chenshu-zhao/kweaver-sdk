@@ -323,8 +323,9 @@ export async function fetchSkillFile(options: ReadSkillFileOptions): Promise<Uin
 export async function downloadSkill(options: DownloadSkillOptions): Promise<DownloadedSkillArchive> {
   const url = buildUrl(options.baseUrl, `${SKILL_API_PREFIX}/skills/${encodeURIComponent(options.skillId)}/download`);
   const { response, body } = await fetchBytesOrThrow(url, { headers: baseHeaders(options) });
+  const serverName = parseContentDisposition(response.headers.get("content-disposition"));
   return {
-    fileName: parseContentDisposition(response.headers.get("content-disposition")) ?? `${options.skillId}.zip`,
+    fileName: basename(serverName || `${options.skillId}.zip`),
     bytes: body,
   };
 }

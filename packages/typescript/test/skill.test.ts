@@ -6,7 +6,7 @@ import { join } from "node:path";
 
 import { KWeaverClient } from "../src/client.js";
 import { parseSkillListArgs, parseSkillRegisterArgs } from "../src/commands/skill.js";
-import { installSkillArchive } from "../src/api/skills.js";
+import { downloadSkill, installSkillArchive } from "../src/api/skills.js";
 
 const BASE = "https://mock.kweaver.test";
 const TOKEN = "test-token-abc";
@@ -81,6 +81,25 @@ test("client.skills.fetchContent resolves index then fetches remote markdown", a
     const content = await client.skills.fetchContent("skill-1");
     assert.equal(content, "# Demo skill\n");
     assert.equal(calls, 2);
+  } finally {
+    globalThis.fetch = orig;
+  }
+});
+
+test("downloadSkill sanitizes server filename to basename", async () => {
+  const orig = globalThis.fetch;
+  globalThis.fetch = async () =>
+    new Response(new Uint8Array([0x50, 0x4b]), {
+      status: 200,
+      headers: {
+        "content-disposition": 'attachment; filename="../../unsafe/demo-skill.zip"',
+      },
+    });
+
+  try {
+    const result = await downloadSkill({ baseUrl: BASE, accessToken: TOKEN, skillId: "skill-1" });
+    assert.equal(result.fileName, "demo-skill.zip");
+    assert.deepEqual(Array.from(result.bytes), [0x50, 0x4b]);
   } finally {
     globalThis.fetch = orig;
   }
