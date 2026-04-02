@@ -126,6 +126,7 @@ test("help text shows dv alias", async () => {
     await run(["--help"]);
     const text = lines.join("\n");
     assert.ok(text.includes("dataview|dv"), "help should mention dv alias");
+    assert.ok(text.includes("skill"), "help should mention skill command");
   } finally {
     console.log = orig;
   }
@@ -145,6 +146,27 @@ test("run context-loader shows subcommand help", async () => {
 
 test("run context-loader --help shows subcommand help", async () => {
   assert.equal(await run(["context-loader", "--help"]), 0);
+});
+
+test("run skill shows subcommand help", async () => {
+  assert.equal(await run(["skill"]), 0);
+});
+
+test("run skill subcommand help does not require auth", async () => {
+  const configDir = createConfigDir();
+  process.env.KWEAVERC_CONFIG_DIR = configDir;
+
+  const lines: string[] = [];
+  const orig = console.log;
+  console.log = (...args: unknown[]) => {
+    lines.push(args.map(String).join(" "));
+  };
+  try {
+    assert.equal(await run(["skill", "list", "--help"]), 0);
+    assert.ok(lines.join("\n").includes("kweaver skill list"), "help should show skill list usage");
+  } finally {
+    console.log = orig;
+  }
 });
 
 test("run context-loader help includes standard MCP short commands", async () => {
