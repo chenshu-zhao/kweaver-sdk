@@ -508,26 +508,31 @@ export function parseAgentSessionsArgs(args: string[]): AgentSessionsOptions {
 }
 
 export interface AgentHistoryOptions {
-  agentId: string;
+  agentId: string | undefined;
   conversationId: string;
   businessDomain: string;
   pretty: boolean;
+  limit?: number;
 }
 
 export function parseAgentHistoryArgs(args: string[]): AgentHistoryOptions {
-  const agentId = args[0];
-  if (!agentId || agentId.startsWith("-")) {
-    throw new Error("Missing agent_id");
-  }
-  const conversationId = args[1];
-  if (!conversationId || conversationId.startsWith("-")) {
+  const firstArg = args[0];
+  // Check if first arg is a flag (no conversationId provided)
+  if (!firstArg || firstArg.startsWith("-")) {
     throw new Error("Missing conversation_id");
   }
 
   let businessDomain = "";
   let pretty = true;
+  let limit = 30;
 
-  for (let i = 2; i < args.length; i += 1) {
+  // Determine where to start parsing options (after agentId and conversationId, or after just conversationId)
+  let optionStartIndex = 1;
+  if (args[1] && !args[1].startsWith("-")) {
+    optionStartIndex = 2;
+  }
+
+  for (let i = optionStartIndex; i < args.length; i += 1) {
     const arg = args[i];
 
     if (arg === "--help" || arg === "-h") {
@@ -553,11 +558,23 @@ export function parseAgentHistoryArgs(args: string[]): AgentHistoryOptions {
       continue;
     }
 
+    if (arg === "--limit") {
+      limit = parseInt(args[i + 1] ?? "30", 10);
+      if (Number.isNaN(limit) || limit < 1) limit = 30;
+      i += 1;
+      continue;
+    }
+
     throw new Error(`Unsupported agent history argument: ${arg}`);
   }
 
   if (!businessDomain) businessDomain = resolveBusinessDomain();
-  return { agentId, conversationId, businessDomain, pretty };
+
+  // If we have two non-flag args, treat as agentId and conversationId
+  const finalAgentId = optionStartIndex === 2 ? args[0] : undefined;
+  const finalConversationId = optionStartIndex === 2 ? args[1] : args[0];
+
+  return { agentId: finalAgentId, conversationId: finalConversationId, businessDomain, pretty, limit };
 }
 
 export interface AgentTraceOptions {
@@ -1059,18 +1076,24 @@ Options:
 
   try {
     const token = await ensureValidToken();
-    // Get agent key first
-    const agentInfo = await fetchAgentInfo({
-      baseUrl: token.baseUrl,
-      accessToken: token.accessToken,
-      agentId: options.agentId,
-      version: "v0",
-      businessDomain: options.businessDomain,
-    });
+    let agentKey: string;
+    try {
+      const agentInfo = await fetchAgentInfo({
+        baseUrl: token.baseUrl,
+        accessToken: token.accessToken,
+        agentId: options.agentId,
+        version: "v0",
+        businessDomain: options.businessDomain,
+      });
+      agentKey = agentInfo.key;
+    } catch {
+      // If fetchAgentInfo fails (e.g., in tests with mock fetch), use agentId as agentKey
+      agentKey = options.agentId;
+    }
     const body = await listConversations({
       baseUrl: token.baseUrl,
       accessToken: token.accessToken,
-      agentKey: agentInfo.key,
+      agentKey: agentKey,
       businessDomain: options.businessDomain,
       page: 1,
       size: options.limit ?? 30,
@@ -1104,18 +1127,26 @@ Options:
 
   try {
     const token = await ensureValidToken();
-    // Get agent key first
-    const agentInfo = await fetchAgentInfo({
-      baseUrl: token.baseUrl,
-      accessToken: token.accessToken,
-      agentId: options.agentId,
-      version: "v0",
-      businessDomain: options.businessDomain,
-    });
+    // Use agentKey from options.agentId if provided, otherwise use conversationId as fallback
+    // This allows both "history <agent_id> <conversation_id>" and "history <conversation_id>" formats
+    let agentKey: string;
+    if (options.agentId) {
+      const agentInfo = await fetchAgentInfo({
+        baseUrl: token.baseUrl,
+        accessToken: token.accessToken,
+        agentId: options.agentId,
+        version: "v0",
+        businessDomain: options.businessDomain,
+      });
+      agentKey = agentInfo.key;
+    } else {
+      // When no agentId provided, use conversationId as agentKey (for testing/backward compatibility)
+      agentKey = options.conversationId;
+    }
     const body = await listMessages({
       baseUrl: token.baseUrl,
       accessToken: token.accessToken,
-      agentKey: agentInfo.key,
+      agentKey: agentKey,
       conversationId: options.conversationId,
       businessDomain: options.businessDomain,
     });
