@@ -23,6 +23,12 @@ import {
   parseKnSearchArgs,
   parseKnBuildArgs,
   formatSimpleKnList,
+  parseConceptGroupArgs,
+  parseActionScheduleArgs,
+  parseJobArgs,
+  parseRelationTypeCreateArgs,
+  parseRelationTypeUpdateArgs,
+  parseRelationTypeDeleteArgs,
 } from "../src/commands/bkn.js";
 import { parseDsListArgs, parseImportCsvArgs } from "../src/commands/ds.js";
 import {
@@ -126,6 +132,7 @@ test("help text shows dv alias", async () => {
     await run(["--help"]);
     const text = lines.join("\n");
     assert.ok(text.includes("dataview|dv"), "help should mention dv alias");
+    assert.ok(text.includes("skill"), "help should mention skill command");
   } finally {
     console.log = orig;
   }
@@ -145,6 +152,27 @@ test("run context-loader shows subcommand help", async () => {
 
 test("run context-loader --help shows subcommand help", async () => {
   assert.equal(await run(["context-loader", "--help"]), 0);
+});
+
+test("run skill shows subcommand help", async () => {
+  assert.equal(await run(["skill"]), 0);
+});
+
+test("run skill subcommand help does not require auth", async () => {
+  const configDir = createConfigDir();
+  process.env.KWEAVERC_CONFIG_DIR = configDir;
+
+  const lines: string[] = [];
+  const orig = console.log;
+  console.log = (...args: unknown[]) => {
+    lines.push(args.map(String).join(" "));
+  };
+  try {
+    assert.equal(await run(["skill", "list", "--help"]), 0);
+    assert.ok(lines.join("\n").includes("kweaver skill list"), "help should show skill list usage");
+  } finally {
+    console.log = orig;
+  }
 });
 
 test("run context-loader help includes standard MCP short commands", async () => {
@@ -774,6 +802,18 @@ test("run bkn --help shows subcommand help", async () => {
   }
 });
 
+test("KN_HELP includes relation-type-paths and resources", async () => {
+  const lines: string[] = [];
+  const originalLog = console.log;
+  console.log = (...args: unknown[]) => { lines.push(args.map(String).join(" ")); };
+  try {
+    assert.equal(await run(["bkn", "--help"]), 0);
+    const help = lines.join("\n");
+    assert.ok(help.includes("relation-type-paths"));
+    assert.ok(help.includes("resources"));
+  } finally { console.log = originalLog; }
+});
+
 test("run bkn get --help shows get options", async () => {
   const lines: string[] = [];
   const originalLog = console.log;
@@ -1361,4 +1401,725 @@ test("ensureValidToken strips Bearer prefix from KWEAVER_TOKEN env var", async (
     delete process.env.KWEAVER_TOKEN;
     delete process.env.KWEAVER_BASE_URL;
   }
+});
+
+// ---------------------------------------------------------------------------
+// Vega CLI command tests
+// ---------------------------------------------------------------------------
+
+test("run vega shows subcommand help", async () => {
+  assert.equal(await run(["vega"]), 0);
+});
+
+test("run vega --help shows all subcommands", async () => {
+  const lines: string[] = [];
+  const originalLog = console.log;
+  console.log = (...args: unknown[]) => { lines.push(args.map(String).join(" ")); };
+  try {
+    assert.equal(await run(["vega", "--help"]), 0);
+    const help = lines.join("\n");
+    assert.ok(help.includes("catalog list"));
+    assert.ok(help.includes("catalog create"));
+    assert.ok(help.includes("catalog update"));
+    assert.ok(help.includes("catalog delete"));
+    assert.ok(help.includes("resource list"));
+    assert.ok(help.includes("resource create"));
+    assert.ok(help.includes("resource update"));
+    assert.ok(help.includes("resource delete"));
+    assert.ok(help.includes("connector-type list"));
+    assert.ok(help.includes("connector-type register"));
+    assert.ok(help.includes("connector-type update"));
+    assert.ok(help.includes("connector-type delete"));
+    assert.ok(help.includes("connector-type enable"));
+    assert.ok(help.includes("discovery-task list"));
+    assert.ok(help.includes("discovery-task get"));
+  } finally {
+    console.log = originalLog;
+  }
+});
+
+// -- catalog subcommands --
+
+test("run vega catalog --help shows CRUD subcommands", async () => {
+  const lines: string[] = [];
+  const originalLog = console.log;
+  console.log = (...args: unknown[]) => { lines.push(args.map(String).join(" ")); };
+  try {
+    assert.equal(await run(["vega", "catalog", "--help"]), 0);
+    const help = lines.join("\n");
+    assert.ok(help.includes("create"));
+    assert.ok(help.includes("update"));
+    assert.ok(help.includes("delete"));
+    assert.ok(help.includes("list"));
+    assert.ok(help.includes("get"));
+    assert.ok(help.includes("health"));
+    assert.ok(help.includes("test-connection"));
+    assert.ok(help.includes("discover"));
+    assert.ok(help.includes("resources"));
+  } finally {
+    console.log = originalLog;
+  }
+});
+
+test("run vega catalog create --help shows options", async () => {
+  const lines: string[] = [];
+  const originalLog = console.log;
+  console.log = (...args: unknown[]) => { lines.push(args.map(String).join(" ")); };
+  try {
+    assert.equal(await run(["vega", "catalog", "create", "--help"]), 0);
+    const help = lines.join("\n");
+    assert.ok(help.includes("--name"));
+    assert.ok(help.includes("--connector-type"));
+    assert.ok(help.includes("--connector-config"));
+    assert.ok(help.includes("--tags"));
+    assert.ok(help.includes("--description"));
+  } finally {
+    console.log = originalLog;
+  }
+});
+
+test("run vega catalog create without required args exits 1", async () => {
+  const errors: string[] = [];
+  const originalErr = console.error;
+  console.error = (...args: unknown[]) => { errors.push(args.map(String).join(" ")); };
+  try {
+    assert.equal(await run(["vega", "catalog", "create"]), 1);
+    assert.ok(errors.join("\n").includes("Usage:"));
+  } finally {
+    console.error = originalErr;
+  }
+});
+
+test("run vega catalog update --help shows options", async () => {
+  const lines: string[] = [];
+  const originalLog = console.log;
+  console.log = (...args: unknown[]) => { lines.push(args.map(String).join(" ")); };
+  try {
+    assert.equal(await run(["vega", "catalog", "update", "--help"]), 0);
+    const help = lines.join("\n");
+    assert.ok(help.includes("--name"));
+    assert.ok(help.includes("--connector-type"));
+    assert.ok(help.includes("--tags"));
+    assert.ok(help.includes("--description"));
+    assert.ok(help.includes("--connector-config"));
+  } finally {
+    console.log = originalLog;
+  }
+});
+
+test("run vega catalog update without id exits 1", async () => {
+  const errors: string[] = [];
+  const originalErr = console.error;
+  console.error = (...args: unknown[]) => { errors.push(args.map(String).join(" ")); };
+  try {
+    assert.equal(await run(["vega", "catalog", "update"]), 1);
+    assert.ok(errors.join("\n").includes("Usage:"));
+  } finally {
+    console.error = originalErr;
+  }
+});
+
+test("run vega catalog delete --help shows options", async () => {
+  const lines: string[] = [];
+  const originalLog = console.log;
+  console.log = (...args: unknown[]) => { lines.push(args.map(String).join(" ")); };
+  try {
+    assert.equal(await run(["vega", "catalog", "delete", "--help"]), 0);
+    const help = lines.join("\n");
+    assert.ok(help.includes("-y"));
+  } finally {
+    console.log = originalLog;
+  }
+});
+
+test("run vega catalog delete without ids exits 1", async () => {
+  const errors: string[] = [];
+  const originalErr = console.error;
+  console.error = (...args: unknown[]) => { errors.push(args.map(String).join(" ")); };
+  try {
+    assert.equal(await run(["vega", "catalog", "delete"]), 1);
+    assert.ok(errors.join("\n").includes("Usage:"));
+  } finally {
+    console.error = originalErr;
+  }
+});
+
+// -- resource subcommands --
+
+test("run vega resource --help shows CRUD subcommands", async () => {
+  const lines: string[] = [];
+  const originalLog = console.log;
+  console.log = (...args: unknown[]) => { lines.push(args.map(String).join(" ")); };
+  try {
+    assert.equal(await run(["vega", "resource", "--help"]), 0);
+    const help = lines.join("\n");
+    assert.ok(help.includes("create"));
+    assert.ok(help.includes("update"));
+    assert.ok(help.includes("delete"));
+    assert.ok(help.includes("list"));
+    assert.ok(help.includes("get"));
+    assert.ok(help.includes("query"));
+  } finally {
+    console.log = originalLog;
+  }
+});
+
+test("run vega resource create --help shows options", async () => {
+  const lines: string[] = [];
+  const originalLog = console.log;
+  console.log = (...args: unknown[]) => { lines.push(args.map(String).join(" ")); };
+  try {
+    assert.equal(await run(["vega", "resource", "create", "--help"]), 0);
+    const help = lines.join("\n");
+    assert.ok(help.includes("--catalog-id"));
+    assert.ok(help.includes("--name"));
+    assert.ok(help.includes("--category"));
+    assert.ok(help.includes("--source-identifier"));
+    assert.ok(help.includes("--database"));
+    assert.ok(help.includes("-d"));
+  } finally {
+    console.log = originalLog;
+  }
+});
+
+test("run vega resource create without required args exits 1", async () => {
+  const errors: string[] = [];
+  const originalErr = console.error;
+  console.error = (...args: unknown[]) => { errors.push(args.map(String).join(" ")); };
+  try {
+    assert.equal(await run(["vega", "resource", "create"]), 1);
+    assert.ok(errors.join("\n").includes("Usage:"));
+  } finally {
+    console.error = originalErr;
+  }
+});
+
+test("run vega resource update --help shows options", async () => {
+  const lines: string[] = [];
+  const originalLog = console.log;
+  console.log = (...args: unknown[]) => { lines.push(args.map(String).join(" ")); };
+  try {
+    assert.equal(await run(["vega", "resource", "update", "--help"]), 0);
+    const help = lines.join("\n");
+    assert.ok(help.includes("--name"));
+    assert.ok(help.includes("--status"));
+    assert.ok(help.includes("--tags"));
+    assert.ok(help.includes("-d"));
+  } finally {
+    console.log = originalLog;
+  }
+});
+
+test("run vega resource update without id exits 1", async () => {
+  const errors: string[] = [];
+  const originalErr = console.error;
+  console.error = (...args: unknown[]) => { errors.push(args.map(String).join(" ")); };
+  try {
+    assert.equal(await run(["vega", "resource", "update"]), 1);
+    assert.ok(errors.join("\n").includes("Usage:"));
+  } finally {
+    console.error = originalErr;
+  }
+});
+
+test("run vega resource delete --help shows options", async () => {
+  const lines: string[] = [];
+  const originalLog = console.log;
+  console.log = (...args: unknown[]) => { lines.push(args.map(String).join(" ")); };
+  try {
+    assert.equal(await run(["vega", "resource", "delete", "--help"]), 0);
+    const help = lines.join("\n");
+    assert.ok(help.includes("-y"));
+  } finally {
+    console.log = originalLog;
+  }
+});
+
+test("run vega resource delete without ids exits 1", async () => {
+  const errors: string[] = [];
+  const originalErr = console.error;
+  console.error = (...args: unknown[]) => { errors.push(args.map(String).join(" ")); };
+  try {
+    assert.equal(await run(["vega", "resource", "delete"]), 1);
+    assert.ok(errors.join("\n").includes("Usage:"));
+  } finally {
+    console.error = originalErr;
+  }
+});
+
+// -- connector-type subcommands --
+
+test("run vega connector-type --help shows CRUD subcommands", async () => {
+  const lines: string[] = [];
+  const originalLog = console.log;
+  console.log = (...args: unknown[]) => { lines.push(args.map(String).join(" ")); };
+  try {
+    assert.equal(await run(["vega", "connector-type", "--help"]), 0);
+    const help = lines.join("\n");
+    assert.ok(help.includes("list"));
+    assert.ok(help.includes("get"));
+    assert.ok(help.includes("register"));
+    assert.ok(help.includes("update"));
+    assert.ok(help.includes("delete"));
+    assert.ok(help.includes("enable"));
+  } finally {
+    console.log = originalLog;
+  }
+});
+
+test("run vega connector-type register --help shows options", async () => {
+  const lines: string[] = [];
+  const originalLog = console.log;
+  console.log = (...args: unknown[]) => { lines.push(args.map(String).join(" ")); };
+  try {
+    assert.equal(await run(["vega", "connector-type", "register", "--help"]), 0);
+    const help = lines.join("\n");
+    assert.ok(help.includes("-d"));
+  } finally {
+    console.log = originalLog;
+  }
+});
+
+test("run vega connector-type register without data exits 1", async () => {
+  const errors: string[] = [];
+  const originalErr = console.error;
+  console.error = (...args: unknown[]) => { errors.push(args.map(String).join(" ")); };
+  try {
+    assert.equal(await run(["vega", "connector-type", "register"]), 1);
+    assert.ok(errors.join("\n").includes("Usage:"));
+  } finally {
+    console.error = originalErr;
+  }
+});
+
+test("run vega connector-type update --help shows options", async () => {
+  const lines: string[] = [];
+  const originalLog = console.log;
+  console.log = (...args: unknown[]) => { lines.push(args.map(String).join(" ")); };
+  try {
+    assert.equal(await run(["vega", "connector-type", "update", "--help"]), 0);
+    const help = lines.join("\n");
+    assert.ok(help.includes("-d"));
+  } finally {
+    console.log = originalLog;
+  }
+});
+
+test("run vega connector-type update without args exits 1", async () => {
+  const errors: string[] = [];
+  const originalErr = console.error;
+  console.error = (...args: unknown[]) => { errors.push(args.map(String).join(" ")); };
+  try {
+    assert.equal(await run(["vega", "connector-type", "update"]), 1);
+    assert.ok(errors.join("\n").includes("Usage:"));
+  } finally {
+    console.error = originalErr;
+  }
+});
+
+test("run vega connector-type delete --help shows options", async () => {
+  const lines: string[] = [];
+  const originalLog = console.log;
+  console.log = (...args: unknown[]) => { lines.push(args.map(String).join(" ")); };
+  try {
+    assert.equal(await run(["vega", "connector-type", "delete", "--help"]), 0);
+    const help = lines.join("\n");
+    assert.ok(help.includes("-y"));
+  } finally {
+    console.log = originalLog;
+  }
+});
+
+test("run vega connector-type delete without type exits 1", async () => {
+  const errors: string[] = [];
+  const originalErr = console.error;
+  console.error = (...args: unknown[]) => { errors.push(args.map(String).join(" ")); };
+  try {
+    assert.equal(await run(["vega", "connector-type", "delete"]), 1);
+    assert.ok(errors.join("\n").includes("Usage:"));
+  } finally {
+    console.error = originalErr;
+  }
+});
+
+test("run vega connector-type enable --help shows usage", async () => {
+  const lines: string[] = [];
+  const originalLog = console.log;
+  console.log = (...args: unknown[]) => { lines.push(args.map(String).join(" ")); };
+  try {
+    assert.equal(await run(["vega", "connector-type", "enable", "--help"]), 0);
+    const help = lines.join("\n");
+    assert.ok(help.includes("--enabled"));
+  } finally {
+    console.log = originalLog;
+  }
+});
+
+test("run vega connector-type enable without args exits 1", async () => {
+  const errors: string[] = [];
+  const originalErr = console.error;
+  console.error = (...args: unknown[]) => { errors.push(args.map(String).join(" ")); };
+  try {
+    assert.equal(await run(["vega", "connector-type", "enable"]), 1);
+    assert.ok(errors.join("\n").includes("Usage:"));
+  } finally {
+    console.error = originalErr;
+  }
+});
+
+// -- discovery-task subcommands --
+
+test("run vega discovery-task --help shows subcommands", async () => {
+  const lines: string[] = [];
+  const originalLog = console.log;
+  console.log = (...args: unknown[]) => { lines.push(args.map(String).join(" ")); };
+  try {
+    assert.equal(await run(["vega", "discovery-task", "--help"]), 0);
+    const help = lines.join("\n");
+    assert.ok(help.includes("list"));
+    assert.ok(help.includes("get"));
+  } finally {
+    console.log = originalLog;
+  }
+});
+
+test("run vega discovery-task list --help shows options", async () => {
+  const lines: string[] = [];
+  const originalLog = console.log;
+  console.log = (...args: unknown[]) => { lines.push(args.map(String).join(" ")); };
+  try {
+    assert.equal(await run(["vega", "discovery-task", "list", "--help"]), 0);
+    const help = lines.join("\n");
+    assert.ok(help.includes("--status"));
+    assert.ok(help.includes("--limit"));
+  } finally {
+    console.log = originalLog;
+  }
+});
+
+test("run vega discovery-task get --help shows usage", async () => {
+  const lines: string[] = [];
+  const originalLog = console.log;
+  console.log = (...args: unknown[]) => { lines.push(args.map(String).join(" ")); };
+  try {
+    assert.equal(await run(["vega", "discovery-task", "get", "--help"]), 0);
+    const help = lines.join("\n");
+    assert.ok(help.includes("discovery-task get"));
+  } finally {
+    console.log = originalLog;
+  }
+});
+
+test("run vega discovery-task get without id exits 1", async () => {
+  const errors: string[] = [];
+  const originalErr = console.error;
+  console.error = (...args: unknown[]) => { errors.push(args.map(String).join(" ")); };
+  try {
+    assert.equal(await run(["vega", "discovery-task", "get"]), 1);
+    assert.ok(errors.join("\n").includes("Usage:"));
+  } finally {
+    console.error = originalErr;
+  }
+});
+
+test("run vega unknown-subcommand exits 1", async () => {
+  const errors: string[] = [];
+  const originalErr = console.error;
+  console.error = (...args: unknown[]) => { errors.push(args.map(String).join(" ")); };
+  try {
+    assert.equal(await run(["vega", "nonexistent"]), 1);
+    assert.ok(errors.join("\n").includes("Unknown"));
+  } finally {
+    console.error = originalErr;
+  }
+});
+
+test("parseConceptGroupArgs parses list args", () => {
+  const opts = parseConceptGroupArgs(["list", "kn-1"]);
+  assert.equal(opts.action, "list");
+  assert.equal(opts.knId, "kn-1");
+});
+
+test("parseConceptGroupArgs parses create with body", () => {
+  const opts = parseConceptGroupArgs(["create", "kn-1", '{"name":"g1"}']);
+  assert.equal(opts.action, "create");
+  assert.equal(opts.knId, "kn-1");
+  assert.equal(opts.body, '{"name":"g1"}');
+});
+
+test("parseConceptGroupArgs parses delete with -y", () => {
+  const opts = parseConceptGroupArgs(["delete", "kn-1", "cg-1", "-y"]);
+  assert.equal(opts.action, "delete");
+  assert.equal(opts.knId, "kn-1");
+  assert.equal(opts.itemId, "cg-1");
+  assert.equal(opts.yes, true);
+});
+
+test("parseConceptGroupArgs parses add-members", () => {
+  const opts = parseConceptGroupArgs(["add-members", "kn-1", "cg-1", "ot-1,ot-2"]);
+  assert.equal(opts.action, "add-members");
+  assert.equal(opts.knId, "kn-1");
+  assert.equal(opts.itemId, "cg-1");
+  assert.equal(opts.extra, "ot-1,ot-2");
+});
+
+test("parseConceptGroupArgs parses remove-members with -y", () => {
+  const opts = parseConceptGroupArgs(["remove-members", "kn-1", "cg-1", "ot-1", "-y"]);
+  assert.equal(opts.action, "remove-members");
+  assert.equal(opts.itemId, "cg-1");
+  assert.equal(opts.extra, "ot-1");
+  assert.equal(opts.yes, true);
+});
+
+test("parseConceptGroupArgs throws help on --help", () => {
+  assert.throws(() => parseConceptGroupArgs(["--help"]), { message: "help" });
+  assert.throws(() => parseConceptGroupArgs([]), { message: "help" });
+});
+
+test("parseActionScheduleArgs parses list", () => {
+  const opts = parseActionScheduleArgs(["list", "kn-1"]);
+  assert.equal(opts.action, "list");
+  assert.equal(opts.knId, "kn-1");
+});
+
+test("parseActionScheduleArgs parses set-status", () => {
+  const opts = parseActionScheduleArgs(["set-status", "kn-1", "s-1", "enabled"]);
+  assert.equal(opts.action, "set-status");
+  assert.equal(opts.knId, "kn-1");
+  assert.equal(opts.itemId, "s-1");
+  assert.equal(opts.extra, "enabled");
+});
+
+test("parseActionScheduleArgs parses delete with -y", () => {
+  const opts = parseActionScheduleArgs(["delete", "kn-1", "s-1,s-2", "-y"]);
+  assert.equal(opts.action, "delete");
+  assert.equal(opts.itemId, "s-1,s-2");
+  assert.equal(opts.yes, true);
+});
+
+test("parseActionScheduleArgs throws help on --help", () => {
+  assert.throws(() => parseActionScheduleArgs(["--help"]), { message: "help" });
+  assert.throws(() => parseActionScheduleArgs([]), { message: "help" });
+});
+
+test("parseJobArgs parses list", () => {
+  const opts = parseJobArgs(["list", "kn-1"]);
+  assert.equal(opts.action, "list");
+  assert.equal(opts.knId, "kn-1");
+});
+
+test("parseJobArgs parses tasks", () => {
+  const opts = parseJobArgs(["tasks", "kn-1", "j-1"]);
+  assert.equal(opts.action, "tasks");
+  assert.equal(opts.knId, "kn-1");
+  assert.equal(opts.itemId, "j-1");
+});
+
+test("parseJobArgs parses delete with -y", () => {
+  const opts = parseJobArgs(["delete", "kn-1", "j-1,j-2", "-y"]);
+  assert.equal(opts.action, "delete");
+  assert.equal(opts.itemId, "j-1,j-2");
+  assert.equal(opts.yes, true);
+});
+
+test("parseJobArgs throws help on --help", () => {
+  assert.throws(() => parseJobArgs(["--help"]), { message: "help" });
+  assert.throws(() => parseJobArgs([]), { message: "help" });
+});
+
+// ── concept-group additional parse tests ────────────────────────────────────
+
+test("parseConceptGroupArgs parses get", () => {
+  const opts = parseConceptGroupArgs(["get", "kn-1", "cg-1"]);
+  assert.equal(opts.action, "get");
+  assert.equal(opts.knId, "kn-1");
+  assert.equal(opts.itemId, "cg-1");
+});
+
+test("parseConceptGroupArgs parses update with body", () => {
+  const opts = parseConceptGroupArgs(["update", "kn-1", "cg-1", '{"name":"g2"}']);
+  assert.equal(opts.action, "update");
+  assert.equal(opts.knId, "kn-1");
+  assert.equal(opts.itemId, "cg-1");
+  assert.equal(opts.extra, '{"name":"g2"}');
+});
+
+test("parseConceptGroupArgs parses -bd flag", () => {
+  const opts = parseConceptGroupArgs(["list", "kn-1", "-bd", "bd_enterprise"]);
+  assert.equal(opts.action, "list");
+  assert.equal(opts.businessDomain, "bd_enterprise");
+});
+
+test("parseConceptGroupArgs throws on missing kn-id", () => {
+  assert.throws(() => parseConceptGroupArgs(["list"]), /Missing kn-id/);
+});
+
+// ── action-schedule additional parse tests ──────────────────────────────────
+
+test("parseActionScheduleArgs parses get", () => {
+  const opts = parseActionScheduleArgs(["get", "kn-1", "s-1"]);
+  assert.equal(opts.action, "get");
+  assert.equal(opts.knId, "kn-1");
+  assert.equal(opts.itemId, "s-1");
+});
+
+test("parseActionScheduleArgs parses create with body", () => {
+  const opts = parseActionScheduleArgs(["create", "kn-1", '{"cron":"* * * * *"}']);
+  assert.equal(opts.action, "create");
+  assert.equal(opts.knId, "kn-1");
+  assert.equal(opts.body, '{"cron":"* * * * *"}');
+});
+
+test("parseActionScheduleArgs parses update with body", () => {
+  const opts = parseActionScheduleArgs(["update", "kn-1", "s-1", '{"cron":"0 * * * *"}']);
+  assert.equal(opts.action, "update");
+  assert.equal(opts.knId, "kn-1");
+  assert.equal(opts.itemId, "s-1");
+  assert.equal(opts.extra, '{"cron":"0 * * * *"}');
+});
+
+test("parseActionScheduleArgs parses -bd flag", () => {
+  const opts = parseActionScheduleArgs(["list", "kn-1", "-bd", "bd_enterprise"]);
+  assert.equal(opts.businessDomain, "bd_enterprise");
+});
+
+test("parseActionScheduleArgs throws on missing kn-id", () => {
+  assert.throws(() => parseActionScheduleArgs(["list"]), /Missing kn-id/);
+});
+
+// ── job additional parse tests ──────────────────────────────────────────────
+
+test("parseJobArgs parses get", () => {
+  const opts = parseJobArgs(["get", "kn-1", "j-1"]);
+  assert.equal(opts.action, "get");
+  assert.equal(opts.knId, "kn-1");
+  assert.equal(opts.itemId, "j-1");
+});
+
+test("parseJobArgs parses -bd flag", () => {
+  const opts = parseJobArgs(["list", "kn-1", "-bd", "bd_enterprise"]);
+  assert.equal(opts.businessDomain, "bd_enterprise");
+});
+
+test("parseJobArgs throws on missing kn-id", () => {
+  assert.throws(() => parseJobArgs(["list"]), /Missing kn-id/);
+});
+
+// ── relation-type create parse tests ────────────────────────────────────────
+
+test("parseRelationTypeCreateArgs parses all required flags", () => {
+  const opts = parseRelationTypeCreateArgs([
+    "kn-1", "--name", "knows", "--source", "ot-1", "--target", "ot-2",
+  ]);
+  assert.equal(opts.knId, "kn-1");
+  const body = JSON.parse(opts.body);
+  assert.equal(body.entries[0].name, "knows");
+  assert.equal(body.entries[0].source_object_type_id, "ot-1");
+  assert.equal(body.entries[0].target_object_type_id, "ot-2");
+});
+
+test("parseRelationTypeCreateArgs parses --mapping", () => {
+  const opts = parseRelationTypeCreateArgs([
+    "kn-1", "--name", "rt", "--source", "ot-1", "--target", "ot-2",
+    "--mapping", "src_prop:tgt_prop",
+  ]);
+  const body = JSON.parse(opts.body);
+  assert.equal(body.entries[0].mapping_rules[0].source_property.name, "src_prop");
+  assert.equal(body.entries[0].mapping_rules[0].target_property.name, "tgt_prop");
+});
+
+test("parseRelationTypeCreateArgs throws on missing required flags", () => {
+  assert.throws(
+    () => parseRelationTypeCreateArgs(["kn-1", "--name", "rt"]),
+    /Usage/
+  );
+});
+
+// ── relation-type update parse tests ────────────────────────────────────────
+
+test("parseRelationTypeUpdateArgs includes source/target/type/mapping_rules", () => {
+  const opts = parseRelationTypeUpdateArgs([
+    "kn-1", "rt-1", "--source", "ot-1", "--target", "ot-2",
+    "--name", "new-name", "--type", "data_view",
+    "--mapping", "material_name:material_name",
+  ]);
+  assert.equal(opts.knId, "kn-1");
+  assert.equal(opts.rtId, "rt-1");
+  const body = JSON.parse(opts.body);
+  assert.equal(body.source_object_type_id, "ot-1");
+  assert.equal(body.target_object_type_id, "ot-2");
+  assert.equal(body.name, "new-name");
+  assert.equal(body.type, "data_view");
+  assert.equal(body.mapping_rules[0].source_property.name, "material_name");
+  assert.equal(body.mapping_rules[0].target_property.name, "material_name");
+});
+
+test("parseRelationTypeUpdateArgs defaults type to direct, empty mapping_rules", () => {
+  const opts = parseRelationTypeUpdateArgs([
+    "kn-1", "rt-1", "--source", "ot-1", "--target", "ot-2",
+  ]);
+  const body = JSON.parse(opts.body);
+  assert.equal(body.source_object_type_id, "ot-1");
+  assert.equal(body.target_object_type_id, "ot-2");
+  assert.equal(body.type, "direct");
+  assert.deepEqual(body.mapping_rules, []);
+  assert.equal(body.name, undefined);
+});
+
+test("parseRelationTypeUpdateArgs supports multiple --mapping flags", () => {
+  const opts = parseRelationTypeUpdateArgs([
+    "kn-1", "rt-1", "--source", "ot-1", "--target", "ot-2",
+    "--mapping", "a:b", "--mapping", "c:d",
+  ]);
+  const body = JSON.parse(opts.body);
+  assert.equal(body.mapping_rules.length, 2);
+  assert.equal(body.mapping_rules[1].source_property.name, "c");
+});
+
+test("parseRelationTypeUpdateArgs throws on invalid mapping format", () => {
+  assert.throws(
+    () => parseRelationTypeUpdateArgs([
+      "kn-1", "rt-1", "--source", "ot-1", "--target", "ot-2", "--mapping", "bad",
+    ]),
+    /Invalid mapping format/
+  );
+});
+
+test("parseRelationTypeUpdateArgs throws on missing --source/--target", () => {
+  assert.throws(
+    () => parseRelationTypeUpdateArgs(["kn-1", "rt-1", "--name", "x"]),
+    /--source and --target are required/
+  );
+});
+
+test("parseRelationTypeUpdateArgs throws on missing kn-id or rt-id", () => {
+  assert.throws(
+    () => parseRelationTypeUpdateArgs(["kn-1"]),
+    /Usage/
+  );
+});
+
+test("parseRelationTypeUpdateArgs throws help on --help", () => {
+  assert.throws(() => parseRelationTypeUpdateArgs(["--help"]), { message: "help" });
+});
+
+// ── relation-type delete parse tests ────────────────────────────────────────
+
+test("parseRelationTypeDeleteArgs parses kn-id and rt-ids", () => {
+  const opts = parseRelationTypeDeleteArgs(["kn-1", "rt-1,rt-2"]);
+  assert.equal(opts.knId, "kn-1");
+  assert.equal(opts.rtIds, "rt-1,rt-2");
+  assert.equal(opts.yes, false);
+});
+
+test("parseRelationTypeDeleteArgs parses -y flag", () => {
+  const opts = parseRelationTypeDeleteArgs(["kn-1", "rt-1", "-y"]);
+  assert.equal(opts.yes, true);
+});
+
+test("parseRelationTypeDeleteArgs throws on missing args", () => {
+  assert.throws(
+    () => parseRelationTypeDeleteArgs(["kn-1"]),
+    /Usage|Missing/
+  );
 });

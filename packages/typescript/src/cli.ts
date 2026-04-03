@@ -7,6 +7,7 @@ import { runConfigCommand } from "./commands/config.js";
 import { runContextLoaderCommand } from "./commands/context-loader.js";
 import { runDsCommand } from "./commands/ds.js";
 import { runDataviewCommand } from "./commands/dataview.js";
+import { runSkillCommand } from "./commands/skill.js";
 import { runTokenCommand } from "./commands/token.js";
 import { runVegaCommand } from "./commands/vega.js";
 
@@ -20,6 +21,7 @@ Usage:
   kweaver auth <platform-url> [--alias name] [-u user] [-p pass] [--playwright] [--insecure|-k]
   kweaver auth login <platform-url>          (alias for auth <url>)
   kweaver auth login <url> --client-id ID --client-secret S --refresh-token T   (run on host without browser)
+  kweaver auth whoami [platform-url|alias] [--json]
   kweaver auth export [platform-url|alias] [--json]
   kweaver auth status [platform-url|alias]
   kweaver auth list
@@ -81,9 +83,15 @@ Usage:
   kweaver config list-bd
   kweaver config show
 
+  kweaver skill list|get|register|status|delete [options]
+  kweaver skill market [options]
+  kweaver skill content <skill-id> [--raw] [--output file]
+  kweaver skill read-file <skill-id> <rel-path> [--raw] [--output file]
+  kweaver skill download|install <skill-id> [path] [options]
+
   kweaver vega health|stats|inspect
   kweaver vega catalog list|get|health|test-connection|discover|resources [options]
-  kweaver vega resource list|get|query|preview [options]
+  kweaver vega resource list|get|query [options]
   kweaver vega connector-type list|get [options]
 
   kweaver context-loader config set|use|list|remove|show [options]
@@ -105,6 +113,7 @@ Commands:
   bkn            Knowledge network (CRUD, build, validate, export, stats, push/pull,
                  object-type, relation-type, subgraph, action-type, action-execution, action-log)
   config         Per-platform configuration (business domain)
+  skill          Skill registry and market (register, search, progressive read, download/install)
   vega           Vega observability (catalog, resource, connector-type, health/stats/inspect)
   context-loader Context-loader MCP (config, tools, resources, prompts, kn-search, query-*, etc.)
   help           Show this message`);
@@ -162,6 +171,10 @@ export async function run(argv: string[]): Promise<number> {
 
   if (command === "config") {
     return runConfigCommand(rest);
+  }
+
+  if (command === "skill") {
+    return runSkillCommand(rest);
   }
 
   if (command === "context-loader" || command === "context") {

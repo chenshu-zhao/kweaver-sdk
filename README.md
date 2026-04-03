@@ -72,7 +72,7 @@ print(reply.content)
 | **Python CLI** | `pip install kweaver-sdk[cli]` | Alternative CLI, feature-parity with TS CLI |
 | **Python SDK** | `pip install kweaver-sdk` | Programmatic API — `from kweaver import KWeaverClient` |
 
-Both CLIs share the same command structure (`kweaver auth`, `kweaver bkn`, `kweaver agent`, `kweaver context-loader`, …) and credentials stored in `~/.kweaver/`.
+Both CLIs share the same command structure (`kweaver auth`, `kweaver bkn`, `kweaver agent`, `kweaver skill`, `kweaver context-loader`, …) and credentials stored in `~/.kweaver/`.
 
 ## Authentication
 
@@ -241,8 +241,9 @@ kweaver config show / list-bd / set-bd <value>   # platform business domain — 
 kweaver token
 kweaver ds list/get/delete/tables/connect
 kweaver ds import-csv <ds_id> --files <glob> [--table-prefix <p>] [--batch-size 500]
-kweaver dataview list/find/get/query/delete
+kweaver dataview|dv list/find/get/query/delete
 kweaver bkn list/get/stats/export/create/update/delete
+kweaver bkn build [--wait] [--timeout 300]
 kweaver bkn create-from-ds <ds_id> --name <name> [--tables t1,t2] [--build]
 kweaver bkn create-from-csv <ds_id> --files <glob> --name <name> [--build]
 kweaver bkn validate/push/pull
@@ -253,6 +254,7 @@ kweaver bkn subgraph / search
 kweaver bkn action-execution get
 kweaver bkn action-log list/get/cancel
 kweaver agent list/get/create/update/delete/chat/sessions/history/publish/unpublish
+kweaver skill list/market/get/register/status/delete/content/read-file/download/install
 kweaver vega health/stats/inspect/catalog/resource/connector-type
 kweaver context-loader config set/use/list/show
 kweaver context-loader kn-search/query-object-instance/...

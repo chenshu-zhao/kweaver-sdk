@@ -1,15 +1,5 @@
 import { HttpError } from "../utils/http.js";
-
-function buildHeaders(accessToken: string, businessDomain: string): Record<string, string> {
-  return {
-    accept: "application/json, text/plain, */*",
-    "accept-language": "zh-cn",
-    authorization: `Bearer ${accessToken}`,
-    token: accessToken,
-    "x-business-domain": businessDomain,
-    "x-language": "zh-cn",
-  };
-}
+import { buildHeaders } from "./headers.js";
 
 export interface OntologyQueryBaseOptions {
   baseUrl: string;
@@ -229,7 +219,15 @@ export async function actionTypeQuery(options: ActionTypeQueryOptions): Promise<
   return responseBody;
 }
 
-/** Action-type execute: POST (has side effects) */
+/**
+ * Action-type execute: POST (has side effects).
+ *
+ * The request body must include `_instance_identities` — an array of objects
+ * identifying which instances the action operates on:
+ * ```json
+ * {"_instance_identities": [{"<primary_key>": "<value>"}], ...otherParams}
+ * ```
+ */
 export interface ActionTypeExecuteOptions extends OntologyQueryBaseOptions {
   atId: string;
   body: string;
