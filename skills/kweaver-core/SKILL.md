@@ -5,7 +5,7 @@ description: >-
   语义搜索、执行 Action、Agent CRUD 与对话、Trace 数据分析。
   操作 Vega 可观测平台 — 查询 Catalog/资源/连接器类型、健康巡检。
   当用户提到"知识网络"、"知识图谱"、"查询对象类"、
-  "执行 Action"、"有哪些 Agent"、"创建 Agent"、"跟 Agent 对话"、
+  "执行 Action"、"有哪些 Agent"、"创建 Agent"、"跟 Agent 对话"、"列出所有 Agent 模板"、
   "数据源"、"数据视图"、"原子视图"、"Catalog"、"Vega"、
   "健康检查"、"巡检"、"trace"、"证据链"、"数据流追踪"、"数据来源"、"数据怎么得到的"等意图时自动使用。
 allowed-tools: Bash(kweaver *), Bash(npx kweaver *)
@@ -61,7 +61,7 @@ kweaver <command> [subcommand] [options]
 | `token` | 打印当前 access token（自动刷新） | `token` | — |
 | `config` | **平台业务域（优先于多数 bkn/agent/ds 操作）** | `config show`, `config list-bd`, `config set-bd <uuid>` | `references/config.md` |
 | `bkn` | BKN 知识网络管理、Schema、查询、Action | `bkn validate`/`push` 默认检测 `.bkn` 编码并规范为 UTF-8，可用 `--no-detect-encoding` 或 `--source-encoding gb18030`；另有 `pull`、`object-type`、`search`、`create-from-ds`/`create-from-csv` 等，见 `references/bkn.md` | `references/bkn.md` |
-| `agent` | Agent CRUD、发布、对话、Trace | `agent list`, `agent get <id>`, `agent chat <id> -m "..."`、`agent sessions <agent_id>`、`agent history <conversation_id>`、`agent trace <conversation_id>` | `references/agent.md` |
+| `agent` | Agent CRUD、发布、对话、Trace、模板、分类 | `agent list`, `agent get <id>`, `agent create --name <n> --profile <p> --config <json>`, `agent publish <id> --category-id <cid>`, `agent chat <id> -m "..."`、`agent category-list`, `agent template-list`, `agent template-get <tpl_id>`、`agent sessions <agent_id>`、`agent history <conversation_id>`、`agent trace <conversation_id>` | `references/agent.md` |
 | `ds` | 数据源管理 | `ds list`, `ds get <id>`, `ds import-csv <file> --name <name>` | `references/ds.md` |
 | `dataview` | 原子/自定义数据视图（mdl-data-model） | `dataview list`、`find --name`、`get`、`query`（SQL / mdl-uniquery）、`delete` | `references/dataview.md` |
 | `vega` | Vega 可观测平台 | `vega health`, `vega catalog list`, `vega resource list` | `references/vega.md` |
@@ -88,6 +88,8 @@ kweaver <command> [subcommand] [options]
 /kweaver-core 跟 Agent xxx 对话，问他"今天库存情况"
 /kweaver-core 搜索知识网络 xxx 中关于"供应链"的内容
 /kweaver-core 用 dataview find 模糊搜索名字含 BOM 的数据视图
+/kweaver-core 列出所有 Agent 模板
+/kweaver-core 基于 "数据分析助手" 模板创建一个新的 Agent
 ```
 
 ## 注意事项
