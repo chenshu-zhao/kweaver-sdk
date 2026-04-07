@@ -40,27 +40,31 @@ test("parseAgentHistoryArgs throws on unknown flag", () => {
 });
 
 test("parseAgentTraceArgs parses agent_id and conversation_id", () => {
-  const result = parseAgentTraceArgs(["agent-1", "conv-123"]);
-  assert.equal(result.agentId, "agent-1");
+  const result = parseAgentTraceArgs(["agent-abc", "conv-123"]);
+  assert.equal(result.agentId, "agent-abc");
   assert.equal(result.conversationId, "conv-123");
   assert.equal(result.pretty, true);
 });
 
 test("parseAgentTraceArgs supports --compact flag", () => {
-  const result = parseAgentTraceArgs(["agent-1", "conv-123", "--compact"]);
-  assert.equal(result.agentId, "agent-1");
+  const result = parseAgentTraceArgs(["agent-abc", "conv-123", "--compact"]);
+  assert.equal(result.agentId, "agent-abc");
   assert.equal(result.conversationId, "conv-123");
   assert.equal(result.pretty, false);
 });
 
-test("parseAgentTraceArgs throws on missing agent_id or conversation_id", () => {
+test("parseAgentTraceArgs throws on missing agent_id", () => {
   assert.throws(() => parseAgentTraceArgs([]), /Missing agent_id/);
   assert.throws(() => parseAgentTraceArgs(["--compact"]), /Missing agent_id/);
-  assert.throws(() => parseAgentTraceArgs(["agent-1"]), /Missing conversation_id/);
+});
+
+test("parseAgentTraceArgs throws on missing conversation_id", () => {
+  assert.throws(() => parseAgentTraceArgs(["agent-abc"]), /Missing conversation_id/);
+  assert.throws(() => parseAgentTraceArgs(["agent-abc", "--compact"]), /Missing conversation_id/);
 });
 
 test("parseAgentTraceArgs throws on unknown flag", () => {
-  assert.throws(() => parseAgentTraceArgs(["agent-1", "conv-1", "--unknown"]), /Unsupported/);
+  assert.throws(() => parseAgentTraceArgs(["agent-abc", "conv-123", "--unknown"]), /Unsupported/);
 });
 
 test("listConversations returns body on 200", { concurrency: false }, async () => {
@@ -86,13 +90,15 @@ test("listConversations throws on 404", { concurrency: false }, async () => {
   globalThis.fetch = async () => new Response("Not Found", { status: 404 });
   try {
     await assert.rejects(
-      () =>
-        listConversations({
-          baseUrl: "https://dip.aishu.cn",
-          accessToken: "token-abc",
-          agentKey: "agent-123",
-        }),
-      (err: Error) => err.message.includes("404"),
+      () => listConversations({
+        baseUrl: "https://dip.aishu.cn",
+        accessToken: "token-abc",
+        agentKey: "agent-123",
+      }),
+      (err: Error) => {
+        assert.ok(err.message.includes("404"));
+        return true;
+      }
     );
   } finally {
     globalThis.fetch = originalFetch;
@@ -123,14 +129,16 @@ test("listMessages throws on 404", { concurrency: false }, async () => {
   globalThis.fetch = async () => new Response("Not Found", { status: 404 });
   try {
     await assert.rejects(
-      () =>
-        listMessages({
-          baseUrl: "https://dip.aishu.cn",
-          accessToken: "token-abc",
-          agentKey: "agent-123",
-          conversationId: "conv-abc",
-        }),
-      (err: Error) => err.message.includes("404"),
+      () => listMessages({
+        baseUrl: "https://dip.aishu.cn",
+        accessToken: "token-abc",
+        agentKey: "agent-123",
+        conversationId: "conv-abc",
+      }),
+      (err: Error) => {
+        assert.ok(err.message.includes("404"));
+        return true;
+      }
     );
   } finally {
     globalThis.fetch = originalFetch;
@@ -180,9 +188,7 @@ test("getTracesByConversation returns body on 200", { concurrency: false }, asyn
   const payload = { traces: [{ span_id: "span-1", name: "query" }] };
   globalThis.fetch = async (url: string | URL | Request) => {
     const reqUrl = typeof url === "string" ? url : url instanceof URL ? url.href : url.url;
-    assert.ok(reqUrl.includes("observability"), `URL should contain observability path: ${reqUrl}`);
-    assert.ok(reqUrl.includes("agent-abc"), `URL should contain agent id: ${reqUrl}`);
-    assert.ok(reqUrl.includes("conv-abc"), `URL should contain conversation id: ${reqUrl}`);
+    assert.ok(reqUrl.includes("/api/agent-factory/v1/observability/agent/agent-abc/conversation/conv-abc/session"), `URL should contain trace path: ${reqUrl}`);
     return new Response(JSON.stringify(payload), {
       status: 200,
       headers: { "content-type": "application/json" },
