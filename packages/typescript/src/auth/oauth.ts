@@ -1011,6 +1011,20 @@ export async function ensureValidToken(opts?: { forceRefresh?: boolean }): Promi
     };
   }
 
+  if (!opts?.forceRefresh && envToken && !envBaseUrl) {
+    const currentPlatformForEnv = getCurrentPlatform();
+    if (currentPlatformForEnv) {
+      const rawToken = envToken.replace(/^Bearer\s+/i, "");
+      return {
+        baseUrl: normalizeBaseUrl(currentPlatformForEnv),
+        accessToken: rawToken,
+        tokenType: isNoAuth(rawToken) ? "none" : "bearer",
+        scope: "",
+        obtainedAt: new Date().toISOString(),
+      };
+    }
+  }
+
   const currentPlatform = getCurrentPlatform();
   if (!currentPlatform) {
     throw new Error("No active platform selected. Run `kweaver auth login <platform-url>` first.");

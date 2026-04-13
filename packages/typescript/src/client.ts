@@ -266,7 +266,13 @@ export class KWeaverClient implements ClientContext {
             "Access token revoked. Run `kweaver auth login` to re-authenticate."
           );
         }
-      } catch {
+      } catch (e) {
+        if (
+          e instanceof Error &&
+          e.message.startsWith("Access token revoked")
+        ) {
+          throw e;
+        }
         // Network error — return client as-is, let the caller deal with it
       }
     }

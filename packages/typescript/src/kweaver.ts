@@ -114,6 +114,24 @@ export function configure(opts: ConfigureOptions): void {
       accessToken: stored.accessToken,
       businessDomain,
     });
+  } else if (
+    !accessToken &&
+    !process.env.KWEAVER_TOKEN &&
+    ["1", "true", "yes"].includes(
+      (process.env.KWEAVER_NO_AUTH ?? "").toLowerCase(),
+    )
+  ) {
+    const resolvedBase = baseUrl ?? process.env.KWEAVER_BASE_URL;
+    if (!resolvedBase) {
+      throw new Error(
+        "Provide baseUrl= or set KWEAVER_BASE_URL when KWEAVER_NO_AUTH is set.",
+      );
+    }
+    _client = new KWeaverClient({
+      baseUrl: resolvedBase,
+      auth: false,
+      businessDomain,
+    });
   } else {
     if (!baseUrl && !process.env.KWEAVER_BASE_URL) {
       throw new Error("Provide baseUrl=, config=true, or set KWEAVER_BASE_URL.");

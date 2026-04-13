@@ -272,6 +272,30 @@ test("ensureValidToken: no-auth token returns without calling fetch", async () =
   }
 });
 
+test("ensureValidToken: KWEAVER_TOKEN without KWEAVER_BASE_URL honors env over saved token", async () => {
+  const configDir = createConfigDir();
+  const { store, oauth } = await importOauthAndStore(configDir);
+  const baseUrl = "https://env-override.example.com";
+  store.setCurrentPlatform(baseUrl);
+  store.saveTokenConfig({
+    baseUrl,
+    accessToken: "saved-real-token",
+    tokenType: "Bearer",
+    scope: "",
+    obtainedAt: new Date().toISOString(),
+  });
+
+  const { NO_AUTH_TOKEN } = await import("../src/config/no-auth.js");
+  process.env.KWEAVER_TOKEN = NO_AUTH_TOKEN;
+  try {
+    const t = await oauth.ensureValidToken();
+    assert.equal(t.accessToken, NO_AUTH_TOKEN);
+    assert.equal(t.baseUrl.replace(/\/+$/, ""), baseUrl.replace(/\/+$/, ""));
+  } finally {
+    delete process.env.KWEAVER_TOKEN;
+  }
+});
+
 // ---------------------------------------------------------------------------
 // KWEAVER_USER env var: load a specific user's token
 // ---------------------------------------------------------------------------

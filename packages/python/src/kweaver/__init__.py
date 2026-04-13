@@ -141,14 +141,20 @@ def configure(
             effective_url = url or os.environ.get("KWEAVER_BASE_URL")
             if not effective_url:
                 raise ValueError("Provide url=, config=True, or set KWEAVER_BASE_URL")
-            auth = TokenAuth(token)
-            _default_client = KWeaverClient(base_url=effective_url, auth=auth, business_domain=effective_domain)
+            auth_provider = TokenAuth(token)
+            _default_client = KWeaverClient(
+                base_url=effective_url, auth=auth_provider, business_domain=effective_domain
+            )
         elif username and password:
             effective_url = url or os.environ.get("KWEAVER_BASE_URL")
             if not effective_url:
                 raise ValueError("Provide url=, config=True, or set KWEAVER_BASE_URL")
-            auth = PasswordAuth(base_url=effective_url, username=username, password=password)
-            _default_client = KWeaverClient(base_url=effective_url, auth=auth, business_domain=effective_domain)
+            auth_provider = PasswordAuth(
+                base_url=effective_url, username=username, password=password
+            )
+            _default_client = KWeaverClient(
+                base_url=effective_url, auth=auth_provider, business_domain=effective_domain
+            )
         elif os.environ.get("KWEAVER_NO_AUTH", "").lower() in ("1", "true", "yes") and not os.environ.get(
             "KWEAVER_TOKEN", ""
         ).strip():
