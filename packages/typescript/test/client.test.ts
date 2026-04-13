@@ -21,6 +21,42 @@ test("KWeaverClient auth false uses no-auth sentinel", () => {
   assert.equal(client.base().baseUrl, BASE);
 });
 
+test("KWeaverClient auth false with config true throws", () => {
+  assert.throws(
+    () => new KWeaverClient({ baseUrl: BASE, auth: false, config: true }),
+    /incompatible with config: true/,
+  );
+});
+
+test("KWeaverClient auth false falls back to active platform for baseUrl", async () => {
+  const { mkdtempSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+
+  const origUrl = process.env.KWEAVER_BASE_URL;
+  const origDir = process.env.KWEAVERC_CONFIG_DIR;
+  delete process.env.KWEAVER_BASE_URL;
+
+  const configDir = mkdtempSync(join(tmpdir(), "kweaver-client-noauth-"));
+  process.env.KWEAVERC_CONFIG_DIR = configDir;
+
+  const t = `${Date.now()}-${Math.random()}`;
+  const store = await import(`../src/config/store.ts?t=${t}`);
+  store.setCurrentPlatform("https://saved-platform.example.com");
+
+  const clientMod = await import(`../src/client.ts?t=${t}`);
+  try {
+    const client = new clientMod.KWeaverClient({ auth: false });
+    assert.equal(client.base().baseUrl, "https://saved-platform.example.com");
+    assert.equal(client.base().accessToken, NO_AUTH_TOKEN);
+  } finally {
+    if (origUrl !== undefined) process.env.KWEAVER_BASE_URL = origUrl;
+    else delete process.env.KWEAVER_BASE_URL;
+    if (origDir !== undefined) process.env.KWEAVERC_CONFIG_DIR = origDir;
+    else delete process.env.KWEAVERC_CONFIG_DIR;
+  }
+});
+
 test("KWeaverClient auth false requires baseUrl when no env and no platform", () => {
   const origUrl = process.env.KWEAVER_BASE_URL;
   const origDir = process.env.KWEAVERC_CONFIG_DIR;

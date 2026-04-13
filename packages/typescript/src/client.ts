@@ -53,12 +53,16 @@ export interface KWeaverClientOptions {
    * When true, read credentials exclusively from ~/.kweaver/ (saved by
    * `kweaver auth login`), ignoring KWEAVER_BASE_URL / KWEAVER_TOKEN env vars.
    * Useful when env vars hold stale tokens or are intended for other tooling.
+   * Incompatible with `auth: false` — the constructor throws if both are set.
    */
   config?: boolean;
 
   /**
    * When false, use no-auth mode: API requests omit Authorization / token headers.
-   * Requires `baseUrl` (explicit, env, or active platform when `config` is true).
+   * Requires a resolvable base URL: `baseUrl`, `KWEAVER_BASE_URL`, or the active
+   * platform from `kweaver auth login`. Incompatible with `config: true` — use
+   * saved `~/.kweaver/` credentials (including `__NO_AUTH__`) via `config: true`
+   * alone instead of passing `auth: false`.
    */
   auth?: boolean;
 }
@@ -128,17 +132,17 @@ export class KWeaverClient implements ClientContext {
   constructor(opts: KWeaverClientOptions = {}) {
     const envDomain = process.env.KWEAVER_BUSINESS_DOMAIN;
 
+    if (opts.auth === false && opts.config) {
+      throw new Error(
+        "KWeaverClient: auth: false is incompatible with config: true.",
+      );
+    }
+
     let baseUrl: string | undefined;
     let accessToken: string | undefined;
 
     if (opts.auth === false) {
-      if (opts.config) {
-        const platform = getCurrentPlatform();
-        if (!platform) {
-          throw new Error("No active platform. Run `kweaver auth login` first.");
-        }
-        baseUrl = opts.baseUrl ?? platform;
-      } else {
+      {
         const envUrl = process.env.KWEAVER_BASE_URL;
         baseUrl = opts.baseUrl ?? envUrl;
         if (!baseUrl) {

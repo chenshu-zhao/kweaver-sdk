@@ -358,7 +358,7 @@ export async function oauth2Login(
       process.stderr.write(
         "OAuth2 endpoint not found (404). Saving platform in no-auth mode.\n",
       );
-      return saveNoAuthPlatform(base);
+      return saveNoAuthPlatform(base, { tlsInsecure: options?.tlsInsecure });
     }
     throw e;
   }
@@ -663,7 +663,7 @@ export async function playwrightLogin(
       process.stderr.write(
         "OAuth2 endpoint not found (404). Saving platform in no-auth mode.\n",
       );
-      return saveNoAuthPlatform(base);
+      return saveNoAuthPlatform(base, { tlsInsecure: options?.tlsInsecure });
     }
     throw e;
   }

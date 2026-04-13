@@ -155,7 +155,7 @@ Login options:
       let token;
 
       if (noAuth) {
-        token = saveNoAuthPlatform(normalizedTarget);
+        token = saveNoAuthPlatform(normalizedTarget, { tlsInsecure });
       } else if (refreshToken) {
         if (!clientId || !clientSecret) {
           console.error("--refresh-token requires --client-id and --client-secret.\n");
