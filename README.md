@@ -327,8 +327,8 @@ npx skills add https://github.com/kweaver-ai/kweaver-sdk \
   --skill kweaver-core --skill create-bkn
 ```
 
-[![skills.sh](https://skills.sh/badge/kweaver-core)](https://skills.sh/kweaver-ai/kweaver-sdk)
-[![skills.sh](https://skills.sh/badge/create-bkn)](https://skills.sh/kweaver-ai/kweaver-sdk)
+[![kweaver-core on skills.sh](https://img.shields.io/badge/skills.sh-kweaver--core-6366f1?style=flat-square)](https://skills.sh/kweaver-ai/kweaver-sdk)
+[![create-bkn on skills.sh](https://img.shields.io/badge/skills.sh-create--bkn-6366f1?style=flat-square)](https://skills.sh/kweaver-ai/kweaver-sdk)
 
 Before using **kweaver-core**, authenticate with your KWeaver instance:
 
