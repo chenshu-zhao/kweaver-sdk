@@ -581,14 +581,20 @@ test("run auth login accepts all known flags without unknown-flag error", async 
   const origError = console.error;
   console.error = (...args: unknown[]) => { errors.push(args.map(String).join(" ")); };
   try {
-    const code = await auth.runAuthCommand([
+    await auth.runAuthCommand([
       "https://headless.example.com",
       "--refresh-token", "rt",
       "--client-id", "cid",
       "--client-secret", "csec",
-      "--redirect-uri", "http://127.0.0.1:9010/callback",
       "--port", "9010",
       "--insecure",
+    ]);
+    assert.ok(!errors.some((e) => e.includes("Unknown option")));
+    errors.length = 0;
+
+    await auth.runAuthCommand([
+      "https://headless2.example.com",
+      "--no-browser",
       "--no-auth",
     ]);
     assert.ok(!errors.some((e) => e.includes("Unknown option")));
