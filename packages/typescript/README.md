@@ -193,6 +193,20 @@ kweaver dataflow logs <dagId> <instanceId> --detail
 
 `kweaver dataflow runs --since` filters one local natural day. If the value cannot be parsed by `new Date(...)`, the CLI falls back to the most recent 20 runs. `kweaver dataflow logs` defaults to summary output; add `--detail` to print indented `input` and `output` payloads.
 
+### Vega `sql` CLI examples
+
+Direct SQL against catalog-backed resources (`POST /api/vega-backend/v1/resources/query`). In SQL, use **`{{<resource_id>}}`** or **`{{.<resource_id>}}`** (Vega resource id from `vega resource list` / `get`) so the backend resolves the physical table and connector. `--resource-type` accepts the connector type of the target data source (run `kweaver vega connector-type list` to see available types). In simple mode, **quote the entire `--query` value** so the shell does not treat `{` / `}` specially.
+
+```bash
+# Simple mode (recommended): avoid JSON-escaping the query string
+kweaver vega sql --resource-type mysql --query "SELECT * FROM {{res-1}} LIMIT 5"
+
+# Advanced mode: full JSON body (optional fields like query_timeout, stream_size, OpenSearch DSL object)
+kweaver vega sql -d '{"resource_type":"mysql","query":"SELECT * FROM {{res-1}} LIMIT 5"}'
+```
+
+If both `-d` and `--query` / `--resource-type` are present, **only `-d` is used**.
+
 **No-auth platforms:** If OAuth is not enabled, use `kweaver auth <url> --no-auth` (or run a normal `auth login`; a **404** on `POST /oauth2/clients` switches to no-auth automatically). Credentials are still saved under `~/.kweaver/` and work with `auth use` / `auth list`. Optional: `KWEAVER_NO_AUTH=1` with `KWEAVER_BASE_URL` when no token env is set. SDK: `new KWeaverClient({ baseUrl, auth: false })` or `kweaver.configure({ baseUrl, auth: false })`.
 
 ## Environment Variables

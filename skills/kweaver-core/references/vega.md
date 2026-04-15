@@ -37,7 +37,7 @@ kweaver vega catalog create \
   --pretty
 ```
 
-- `connector-type` 可选值：`mysql` / `mariadb` / `postgresql` / `opensearch`
+- `connector-type` 取值通过 `kweaver vega connector-type list` 获取（常见：`mysql` / `mariadb` / `postgresql` / `opensearch`）
 - `connector-config` 字段因类型而异，用 `kweaver vega connector-type get <type>` 查看 `field_config`
 - 注册时后端会**测试连接**，密码错误或网络不通会被拒绝
 - **注意**：`host` 需用 Vega 后端容器能访问的地址（通常是 Docker/K8s 内网 IP，而非公网 IP）
@@ -128,16 +128,22 @@ kweaver vega query execute -d '{
 `POST /api/vega-backend/v1/resources/query` — 在 **MySQL / MariaDB / PostgreSQL** 上执行 SQL，或在 **OpenSearch** 上执行 DSL；由 vega-backend 直连数据源并可用 sqlglot 做方言转换。**不依赖** Etrino / Trino。
 
 ```bash
+# Simple mode (no JSON body): --resource-type + --query（SQL 须用引号包住；占位符 {{id}} 或 {{.id}}）
+kweaver vega sql --resource-type mysql --query "SELECT * FROM {{<your_resource_id>}} LIMIT 5"
+
+# Advanced mode: full JSON (stream_size, query_timeout, query_id, OpenSearch DSL object, etc.)
 kweaver vega sql -d '<json>'
 kweaver vega sql --help
 ```
+
+当同时使用 `-d` 与 `--query` / `--resource-type` 时，**仅使用 `-d` 的请求体**（后者被忽略）。
 
 请求体字段：
 
 | 字段 | 说明 |
 |------|------|
 | `query` | 必填。SQL 字符串，或 OpenSearch 的 DSL 对象 |
-| `resource_type` | 必填。`mysql` \| `mariadb` \| `postgresql` \| `opensearch` |
+| `resource_type` | 必填。如 `mysql`、`mariadb`、`postgresql`、`opensearch`（以 `vega connector-type list` 返回为准） |
 | `stream_size` | 可选，流式批次 100–10000，默认 10000 |
 | `query_timeout` | 可选，秒，1–3600，默认 60 |
 | `query_id` | 可选，游标会话 |
@@ -146,23 +152,26 @@ SQL 中**应使用**占位符 `{{.<资源ID>}}` 或 `{{<资源ID>}}`，**资源 
 
 > **重要**：占位符是 vega-backend 识别使用哪个 Catalog connector 的依据。不含占位符的裸 SQL（即便传了 `catalog_id`）可能因全局默认 connector 未配置而失败（`connector config is incomplete`）。**推荐始终使用 `{{resource_id}}` 占位符。**
 
-示例（占位符）：
+示例（占位符，简单模式）：
+
+```bash
+kweaver vega sql --resource-type mysql --query "SELECT supplier_name, city FROM {{<your_resource_id>}} LIMIT 5"
+```
+
+（将 `<your_resource_id>` 换为 `vega resource get` 返回的资源 id。）
+
+统计聚合示例（简单模式）：
+
+```bash
+kweaver vega sql --resource-type mysql --query "SELECT city, COUNT(*) AS cnt FROM {{<resource_id>}} GROUP BY city ORDER BY cnt DESC"
+```
+
+等价 JSON 模式示例：
 
 ```bash
 kweaver vega sql -d '{
   "resource_type":"mysql",
   "query":"SELECT supplier_name, city FROM {{<your_resource_id>}} LIMIT 5"
-}'
-```
-
-（将 `<your_resource_id>` 换为 `vega resource get` 返回的资源 id。）
-
-统计聚合示例：
-
-```bash
-kweaver vega sql -d '{
-  "resource_type":"mysql",
-  "query":"SELECT city, COUNT(*) AS cnt FROM {{<resource_id>}} GROUP BY city ORDER BY cnt DESC"
 }'
 ```
 
@@ -224,5 +233,6 @@ kweaver vega resource query <resource-id> -d '{"limit":10,"offset":0}'
 kweaver vega query execute -d '{"tables":[{"resource_id":"<id>"}],"limit":20}'
 
 # 直连 SQL（必须用 {{resource_id}} 占位符路由到正确的 connector）
-kweaver vega sql -d '{"resource_type":"mysql","query":"SELECT * FROM {{<resource-id>}} LIMIT 10"}'
+kweaver vega sql --resource-type mysql --query "SELECT * FROM {{<resource-id>}} LIMIT 10"
+# 或完整 JSON：kweaver vega sql -d '{"resource_type":"mysql","query":"SELECT * FROM {{<resource-id>}} LIMIT 10"}'
 ```

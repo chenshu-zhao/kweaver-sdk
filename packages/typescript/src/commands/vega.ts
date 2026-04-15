@@ -70,7 +70,8 @@ Subcommands:
   dataset build <resource-id> [--mode full|incremental|realtime]
   dataset build-status <resource-id> <task-id>
   query execute -d <json>               Structured query (tables, joins, filters)
-  sql -d <json>                         Direct SQL / DSL (POST /resources/query)
+  sql --resource-type <t> --query <sql>  Direct SQL / DSL; use {{<resource_id>}} in SQL (quoted)
+  sql -d <json>                         Same API with full JSON body (advanced)
   connector-type list                 List connector types
   connector-type get <type>           Get connector type details
   connector-type register -d <json>   Register a new connector type
@@ -1432,52 +1433,96 @@ Options:
 
 async function runVegaSql(args: string[]): Promise<number> {
   if (args.includes("--help") || args.includes("-h")) {
-    console.log(`kweaver vega sql -d <json>
+    console.log(`kweaver vega sql --resource-type <type> --query "<sql-or-dsl>"
+kweaver vega sql -d <json>
 
 POST /api/vega-backend/v1/resources/query — execute SQL (MySQL/MariaDB/PostgreSQL) or OpenSearch DSL.
 
-Body fields:
+Simple mode (no JSON escaping for query + type):
+  --resource-type <t>   Required with --query unless using -d
+  --query <string>      One shell argument: the full SQL (or DSL string). Always quote it.
+
+Advanced mode (full request body, optional fields):
+  -d, --data <json>     Raw JSON body. When present, this mode is used and any --query / --resource-type are ignored.
+
+Resource placeholders (how to reference Vega tables in SQL):
+  {{<resource_id>}}     Required token form: double braces around the Vega resource id (from vega resource list / get).
+  {{.<resource_id>}}    Alternate form with a dot after {{ ; same replacement and routing.
+
+  The backend swaps each placeholder for that resource's physical SourceIdentifier and picks the catalog connector.
+  Without at least one placeholder, queries often fail (e.g. connector config is incomplete) unless a default connector exists.
+
+  Shell (simple mode) — wrap the whole SQL so braces are not interpreted by the shell:
+    kweaver vega sql --resource-type mysql --query "SELECT * FROM {{abc123xyz}} LIMIT 5"
+
+  Shell (-d mode) — placeholders live inside the JSON string value; use single quotes around the JSON so inner double quotes work:
+    kweaver vega sql -d '{"resource_type":"mysql","query":"SELECT * FROM {{abc123xyz}} LIMIT 5"}'
+
+Body fields (JSON / simple mode mapping):
   query          (required) SQL string or OpenSearch DSL object
-  resource_type  (required) one of: mysql, mariadb, postgresql, opensearch
+  resource_type  (required) e.g. mysql, mariadb, postgresql, opensearch (see vega connector-type list)
   stream_size    optional batch size for streaming (100–10000, default 10000)
   query_timeout  optional seconds (1–3600, default 60)
   query_id       optional cursor session id
 
-SQL should use {{<vega_resource_id>}} or {{.<vega_resource_id>}} placeholders; the backend replaces each with the resource's physical table id (SourceIdentifier) and routes the query through the owning catalog's connector. Without placeholders the backend may fail with "connector config is incomplete" if no default connector is configured.
+Do not use --type; use --resource-type.
 
-Options:
-  -d, --data <json>   Request body (JSON string)`);
+Common flags:
+  -bd, --biz-domain <s>   Business domain (default: bd_public)
+  --pretty               Pretty-print JSON (default)`);
     return 0;
   }
 
   let data: string | undefined;
+  let query: string | undefined;
+  let resourceType: string | undefined;
   const { remaining, businessDomain, pretty } = parseCommonFlags(args);
 
   for (let i = 0; i < remaining.length; i += 1) {
     const arg = remaining[i];
+    if (arg === "--type") {
+      console.error("Use --resource-type instead of --type (e.g. --resource-type mysql).");
+      return 1;
+    }
     if ((arg === "-d" || arg === "--data") && remaining[i + 1]) {
       data = remaining[++i];
       continue;
     }
+    if (arg === "--query" && remaining[i + 1]) {
+      query = remaining[++i];
+      continue;
+    }
+    if (arg === "--resource-type" && remaining[i + 1]) {
+      resourceType = remaining[++i];
+      continue;
+    }
   }
 
-  if (!data) {
-    console.error("Usage: kweaver vega sql -d <json>");
-    return 1;
-  }
+  let requestBody: string;
 
-  try {
-    JSON.parse(data);
-  } catch {
-    console.error(`Invalid JSON: ${data}`);
-    return 1;
+  if (data !== undefined) {
+    try {
+      JSON.parse(data);
+    } catch {
+      console.error(`Invalid JSON: ${data}`);
+      return 1;
+    }
+    requestBody = data;
+  } else {
+    if (!query || !resourceType) {
+      console.error(
+        "Usage: kweaver vega sql --resource-type <type> --query \"<sql-or-dsl>\"\n       kweaver vega sql -d <json>",
+      );
+      return 1;
+    }
+    requestBody = JSON.stringify({ query, resource_type: resourceType });
   }
 
   const token = await ensureValidToken();
   const body = await vegaSQLQuery({
     baseUrl: token.baseUrl,
     accessToken: token.accessToken,
-    body: data,
+    body: requestBody,
     businessDomain,
   });
   console.log(formatCallOutput(body, pretty));
