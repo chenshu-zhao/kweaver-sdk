@@ -150,6 +150,21 @@ test("deleteVegaResources sends DELETE to /resources/:ids", async () => {
   }
 });
 
+test("listAllResources uses GET /resources (not /resources/list — avoids id=list routing)", async () => {
+  const mock = mockFetch({ entries: [{ id: "r1" }] });
+  try {
+    const client = makeClient();
+    await client.vega.listAllResources({ limit: 30, offset: 0 });
+    assert.equal(mock.calls[0].method, "GET");
+    const url = new URL(mock.calls[0].url);
+    assert.equal(url.pathname, "/api/vega-backend/v1/resources");
+    assert.equal(url.searchParams.get("limit"), "30");
+    assert.equal(url.searchParams.get("offset"), "0");
+  } finally {
+    mock.restore();
+  }
+});
+
 test("registerVegaConnectorType sends POST to /connector-types", async () => {
   const mock = mockFetch({ type: "my-type" }, 201);
   try {

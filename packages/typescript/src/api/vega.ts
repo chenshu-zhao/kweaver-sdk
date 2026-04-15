@@ -877,20 +877,16 @@ export interface ListAllVegaResourcesOptions {
   businessDomain?: string;
 }
 
+/** List all Vega resources (no catalog filter). Uses GET /resources — not /resources/list, which
+ * conflicts with GET /resources/{id} on some gateways (path segment "list" is treated as an id). */
 export async function listAllVegaResources(options: ListAllVegaResourcesOptions): Promise<string> {
   const { baseUrl, accessToken, limit, offset, businessDomain = "bd_public" } = options;
-  const base = baseUrl.replace(/\/+$/, "");
-  const url = new URL(`${base}${VEGA_BASE}/resources/list`);
-  if (limit !== undefined) url.searchParams.set("limit", String(limit));
-  if (offset !== undefined) url.searchParams.set("offset", String(offset));
-
-  const response = await fetch(url.toString(), {
-    method: "GET",
-    headers: buildHeaders(accessToken, businessDomain),
+  return listVegaResources({
+    baseUrl,
+    accessToken,
+    limit,
+    offset,
+    businessDomain,
   });
-
-  const body = await response.text();
-  if (!response.ok) throw new HttpError(response.status, response.statusText, body);
-  return body;
 }
 
