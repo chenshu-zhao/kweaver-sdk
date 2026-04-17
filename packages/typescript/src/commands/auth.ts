@@ -27,12 +27,24 @@ import {
   buildCopyCommand,
   eacpHydraAdminLogin,
   formatHttpError,
+  isStudiowebShellUnavailableError,
   normalizeBaseUrl,
   oauth2Login,
   oauth2PasswordSigninLogin,
   playwrightLogin,
   refreshTokenLogin,
 } from "../auth/oauth.js";
+
+/** True when the `playwright` npm package can be imported (browser binaries may still need `npx playwright install`). */
+async function isPlaywrightPackageResolvable(): Promise<boolean> {
+  try {
+    const modName = "playwright";
+    await import(/* webpackIgnore: true */ modName);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export async function runAuthCommand(args: string[]): Promise<number> {
   const target = args[0];
@@ -41,7 +53,7 @@ export async function runAuthCommand(args: string[]): Promise<number> {
   if (!target || target === "--help" || target === "-h") {
     console.log(`kweaver auth login <url> [options]   Login to a platform (browser OAuth2 by default)
 kweaver auth <url>                   Login (shorthand; same options as login)
-kweaver auth whoami [url|alias]      Show current user identity (from id_token)
+kweaver auth whoami [url|alias] [--json]  Show current user identity (from id_token)
 kweaver auth export [url|alias] [--json]   Export credentials; run printed command on a headless host
 kweaver auth status [url|alias]      Show current auth status
 kweaver auth list                    List all platforms and users (tree view)
@@ -63,10 +75,10 @@ Login options:
   --port <n>             Local callback port (default: 9010). Use when 9010 is occupied.
   --no-browser           Do not open a browser; print the auth URL and prompt for the callback URL or code (stdin).
                          Use on headless servers or when automatic browser launch fails.
-  -u, --username         Username (with -p triggers Playwright headless login by default)
-  -p, --password         Password
-  --http-signin          With -u/-p: HTTP POST /oauth2/signin (no Playwright). Public key from page when present; else built-in modulus.
-  --playwright           Force Playwright browser login even without -u/-p
+  -u, --username         Username (with -p: tries HTTP /oauth2/signin first when the Studio web shell is available)
+  -p, --password         Password (with -u: falls back to Playwright headless only when studioweb is unavailable and Playwright is installed)
+  --http-signin          With -u/-p: HTTP POST /oauth2/signin only (no Playwright fallback). Uses the built-in RSA public key.
+  --playwright           With -u/-p: force Playwright (skip HTTP sign-in). Without -u/-p: open Playwright for manual login.
   --insecure, -k         Skip TLS certificate verification (self-signed / dev HTTPS only)
   --no-auth              Save platform without OAuth (servers with no authentication). Same as detecting OAuth 404 during login.`);
 
@@ -269,11 +281,56 @@ Login options:
           oauthProduct: oauthProduct ?? undefined,
           signinPublicKeyPemPath: signinPublicKeyFile ?? undefined,
         });
-      } else if (username && password) {
-        console.log("Logging in (headless)...");
+      } else if (username && password && usePlaywright) {
+        console.log("Logging in (headless, Playwright)...");
         token = await playwrightLogin(normalizedTarget, {
-          username, password, tlsInsecure, port: customPort,
+          username,
+          password,
+          tlsInsecure,
+          port: customPort,
         });
+      } else if (username && password) {
+        const signinOpts = {
+          username,
+          password,
+          tlsInsecure,
+          port: customPort,
+          clientId: clientId ?? undefined,
+          clientSecret: clientSecret ?? undefined,
+          oauthProduct: oauthProduct ?? undefined,
+          signinPublicKeyPemPath: signinPublicKeyFile ?? undefined,
+        };
+        console.log("Logging in (HTTP /oauth2/signin)...");
+        try {
+          token = await oauth2PasswordSigninLogin(normalizedTarget, signinOpts);
+        } catch (err) {
+          if (!isStudiowebShellUnavailableError(err)) {
+            throw err;
+          }
+          const playwrightOk = await isPlaywrightPackageResolvable();
+          if (playwrightOk) {
+            process.stderr.write(
+              "Studio web sign-in shell is not available; falling back to Playwright headless login.\n",
+            );
+            console.log("Logging in (headless, Playwright)...");
+            token = await playwrightLogin(normalizedTarget, {
+              username,
+              password,
+              tlsInsecure,
+              port: customPort,
+            });
+          } else {
+            console.error(
+              "Studio web sign-in shell is not available on this platform, and the Playwright package is not installed.",
+            );
+            console.error(
+              "Install Playwright for headless browser login: npm install playwright && npx playwright install chromium",
+            );
+            console.error("Alternatively, use OAuth without credentials:");
+            console.error(`  kweaver auth login ${normalizedTarget} --no-browser`);
+            throw err;
+          }
+        }
       } else if (usePlaywright) {
         console.log("Opening browser for login (Playwright)...");
         token = await playwrightLogin(normalizedTarget, {
@@ -346,14 +403,26 @@ Login options:
 
     const platform = statusTarget ?? getCurrentPlatform();
     if (!platform) {
-      console.error("No active platform. Run `kweaver auth login <platform-url>` first.");
-      return 1;
+      const envUrl = process.env.KWEAVER_BASE_URL?.trim();
+      const envToken = process.env.KWEAVER_TOKEN?.trim();
+      if (!envUrl || !envToken) {
+        console.error(
+          "No active platform. Run `kweaver auth login <platform-url>` first.\n" +
+          "  Tip: set KWEAVER_BASE_URL and KWEAVER_TOKEN to use this command without a saved login.",
+        );
+        return 1;
+      }
+      console.log(`Config directory: ${getConfigDir()}`);
+      console.log(`Platform:         ${envUrl} (KWEAVER_BASE_URL)`);
+      console.log(`Token present:    yes (KWEAVER_TOKEN)`);
+      console.log(`Refresh token:    n/a (env)`);
+      return 0;
     }
 
     const token = loadTokenConfig(platform);
     if (!token) {
       console.error(
-        statusTarget ? `No saved token for ${statusTarget}.` : "No saved token found."
+        statusTarget ? `No saved token for ${statusTarget}.` : "No saved token found.",
       );
       return 1;
     }
@@ -505,7 +574,7 @@ Login options:
   }
 
   console.error("Usage: kweaver auth login <platform-url> [--alias <name>] [-u user] [-p pass] [--playwright]");
-  console.error("       kweaver auth whoami [platform-url|alias]");
+  console.error("       kweaver auth whoami [platform-url|alias] [--json]");
   console.error("       kweaver auth export [platform-url|alias] [--json]");
   console.error("       kweaver auth status [platform-url|alias]");
   console.error("       kweaver auth list");
@@ -614,8 +683,32 @@ Options:
   const platform = resolved && /^https?:\/\//.test(resolved) ? normalizeBaseUrl(resolved) : resolved ?? getCurrentPlatform();
 
   if (!platform) {
-    console.error("No active platform. Run `kweaver auth login <platform-url>` first.");
-    return 1;
+    const envUrl = process.env.KWEAVER_BASE_URL?.trim();
+    const envToken = process.env.KWEAVER_TOKEN?.trim();
+    if (!envUrl || !envToken) {
+      console.error("No active platform. Run `kweaver auth login <platform-url>` first.");
+      return 1;
+    }
+    const accessToken = envToken.replace(/^Bearer\s+/i, "");
+    const payload = decodeJwtPayload(accessToken);
+    if (jsonOutput) {
+      console.log(JSON.stringify({ platform: envUrl, source: "env", ...(payload ?? {}) }, null, 2));
+      return 0;
+    }
+    console.log(`Platform: ${envUrl}`);
+    console.log(`Source:   env (KWEAVER_TOKEN)`);
+    if (payload) {
+      const uname = payload.preferred_username ?? payload.name;
+      if (uname) console.log(`Username: ${uname}`);
+      console.log(`User ID:  ${payload.sub ?? "(unknown)"}`);
+      console.log(`Issuer:   ${payload.iss ?? "(unknown)"}`);
+      if (payload.iat) console.log(`Issued:   ${new Date((payload.iat as number) * 1000).toISOString()}`);
+      if (payload.exp) console.log(`Expires:  ${new Date((payload.exp as number) * 1000).toISOString()}`);
+    } else {
+      console.log(`User info unavailable: opaque access token.`);
+      console.log(`Hint: run \`kweaver auth login ${envUrl}\` to obtain a full session.`);
+    }
+    return 0;
   }
 
   const token = loadTokenConfig(platform);

@@ -2,13 +2,16 @@
  * HTML parsing for HTTP /oauth2/signin (Next.js __NEXT_DATA__).
  */
 import assert from "node:assert/strict";
+import { createPublicKey } from "node:crypto";
 import test from "node:test";
 
 import {
   DEFAULT_SIGNIN_RSA_MODULUS_HEX,
+  isStudiowebShellUnavailableError,
   parseSigninPageHtmlProps,
   rsaModulusHexToSpkiPem,
   STUDIO_SIGNIN_RSA_MODULUS_HEX,
+  STUDIOWEB_LOGIN_PUBLIC_KEY_PEM,
 } from "../src/auth/oauth.js";
 
 test("parseSigninPageHtmlProps: csrftoken and challenge", () => {
@@ -96,4 +99,30 @@ test("rsaModulusHexToSpkiPem: Studio modulus yields PEM with BEGIN PUBLIC KEY", 
 
 test("rsaModulusHexToSpkiPem: rejects odd-length hex", () => {
   assert.throws(() => rsaModulusHexToSpkiPem("abc"), /even-length/);
+});
+
+test("STUDIOWEB_LOGIN_PUBLIC_KEY_PEM: parses as a valid 2048-bit RSA SPKI", () => {
+  const key = createPublicKey(STUDIOWEB_LOGIN_PUBLIC_KEY_PEM);
+  assert.equal(key.asymmetricKeyType, "rsa");
+  const details = key.asymmetricKeyDetails;
+  assert.ok(details && "modulusLength" in details, "expected asymmetricKeyDetails.modulusLength");
+  assert.equal((details as { modulusLength: number }).modulusLength, 2048);
+});
+
+test("isStudiowebShellUnavailableError: true for probe / network messages", () => {
+  assert.equal(
+    isStudiowebShellUnavailableError(
+      new Error(
+        "Studioweb signin endpoint not available at https://x/interface/studioweb/login (HTTP 404).",
+      ),
+    ),
+    true,
+  );
+  assert.equal(
+    isStudiowebShellUnavailableError(
+      new Error("Cannot reach studioweb signin endpoint at https://x/interface/studioweb/login."),
+    ),
+    true,
+  );
+  assert.equal(isStudiowebShellUnavailableError(new Error("wrong password")), false);
 });

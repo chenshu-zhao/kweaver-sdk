@@ -29,9 +29,9 @@ export async function runConfigCommand(args: string[]): Promise<number> {
   }
 
   if (sub === "show") {
-    const platform = getCurrentPlatform();
+    const platform = getCurrentPlatform() ?? process.env.KWEAVER_BASE_URL?.trim();
     if (!platform) {
-      console.error("No active platform. Run `kweaver auth login <url>` first.");
+      console.error("No active platform. Run `kweaver auth login <url>` first.\n  Tip: set KWEAVER_BASE_URL to use this command without a saved login.");
       return 1;
     }
     const bd = resolveBusinessDomain(platform);
@@ -40,7 +40,8 @@ export async function runConfigCommand(args: string[]): Promise<number> {
       : loadPlatformBusinessDomain(platform)
         ? "config"
         : "default";
-    console.log(`Platform:        ${platform}`);
+    const platformSource = getCurrentPlatform() ? "" : " (KWEAVER_BASE_URL)";
+    console.log(`Platform:        ${platform}${platformSource}`);
     console.log(`Business Domain: ${bd} (${source})`);
     return 0;
   }

@@ -38,6 +38,21 @@ export const STUDIO_SIGNIN_RSA_MODULUS_HEX =
   "B999";
 
 /**
+ * Studioweb hardcoded LOGIN public key (PEM).
+ * Source: kweaver-ai/kweaver `deploy/auto_cofig/auto_config.sh` `LOGIN_PUBLIC_KEY`.
+ * High-priority candidate for HTTP `/oauth2/signin` when the server rejects other keys.
+ */
+export const STUDIOWEB_LOGIN_PUBLIC_KEY_PEM = `-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsyOstgbYuubBi2PUqeVj
+GKlkwVUY6w1Y8d4k116dI2SkZI8fxcjHALv77kItO4jYLVplk9gO4HAtsisnNE2o
+wlYIqdmyEPMwupaeFFFcg751oiTXJiYbtX7ABzU5KQYPjRSEjMq6i5qu/mL67XTk
+hvKwrC83zme66qaKApmKupDODPb0RRkutK/zHfd1zL7sciBQ6psnNadh8pE24w8O
+2XVy1v2bgSNkGHABgncR7seyIg81JQ3c/Axxd6GsTztjLnlvGAlmT1TphE84mi99
+fUaGD2A1u1qdIuNc+XuisFeNcUW6fct0+x97eS2eEGRr/7qxWmO/P20sFVzXc2bF
+1QIDAQAB
+-----END PUBLIC KEY-----`;
+
+/**
  * Default RSA modulus (hex) for `/oauth2/signin` when `__NEXT_DATA__` has no `publicKey` / `modulus`.
  * DIP / EACP / AnyShare-style deployments use the ISFWeb `core/auth` PUBLIC_KEY (1024-bit, exp 65537).
  * Prefer key material from the sign-in page when present.
@@ -52,35 +67,15 @@ export const DEFAULT_SIGNIN_RSA_MODULUS_HEX =
 const ANYFABRIC_SAMPLE_SPKI_BASE64 =
   "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4E+eiWRwffhRIPQYvlXUjf0b3HqCmosiCxbFCYI/gdfDBhrTUzbt3fL3o/gRQQBEPf69vhJMFH2ZMtaJM6ohE3yQef331liPVM0YvqMOgvoID+zDa1NIZFObSsjOKhvZtv9esO0REeiVEPKNc+Dp6il3x7TV9VKGEv0+iriNjqv7TGAexo2jVtLm50iVKTju2qmCDG83SnVHzsiNj70MiviqiLpgz72IxjF+xN4bRw8I5dD0GwwO8kDoJUGWgTds+VckCwdtZA65oui9Osk5t1a4pg6Xu9+HFcEuqwJTDxATvGAz1/YW0oUisjM0ObKTRDVSfnTYeaBsN6L+M+8gCwIDAQAB";
 
-/** Ordered PEMs for `--http-signin` when the server key is unknown (try until EACP accepts ciphertext). */
-function listBuiltinSigninPemCandidates(): string[] {
-  const d = rsaModulusHexToSpkiPem(DEFAULT_SIGNIN_RSA_MODULUS_HEX.replace(/\s+/g, ""));
-  const s = rsaModulusHexToSpkiPem(STUDIO_SIGNIN_RSA_MODULUS_HEX.replace(/\s+/g, ""));
-  const af = tryDerSpkiBase64ToPem(ANYFABRIC_SAMPLE_SPKI_BASE64);
-  const arr = af ? [d, s, af] : [d, s];
-  return [...new Set(arr)];
-}
-
 /**
- * PEM list for HTTP sign-in: page/file key first, then built-in candidates (deduped).
+ * Default PEM for HTTP `/oauth2/signin`: **the fixed `STUDIOWEB_LOGIN_PUBLIC_KEY_PEM`** (matches
+ * `kweaver-ai/kweaver/deploy/auto_cofig/auto_config.sh` `LOGIN_PUBLIC_KEY`). KWeaver platforms have
+ * standardized on this single key — no fallback list, no probing of `__NEXT_DATA__` page key, no
+ * `trying next candidate…` noise. Override with `--signin-public-key-file` /
+ * `KWEAVER_SIGNIN_RSA_PUBLIC_KEY` if a deployment ever ships a different public key.
  */
-function buildHttpSigninPemCandidates(parsedMaterial: string | undefined): string[] {
-  const builtins = listBuiltinSigninPemCandidates();
-  if (parsedMaterial?.trim()) {
-    try {
-      const pagePem = resolveSigninPublicKeyPem(parsedMaterial, { allowBuiltinModulus: false });
-      const out: string[] = [pagePem];
-      for (const b of builtins) {
-        if (!out.includes(b)) {
-          out.push(b);
-        }
-      }
-      return out;
-    } catch {
-      /* invalid page material — use built-ins only */
-    }
-  }
-  return builtins;
+function buildHttpSigninPemCandidates(_parsedMaterial: string | undefined): string[] {
+  return [STUDIOWEB_LOGIN_PUBLIC_KEY_PEM];
 }
 
 /**
@@ -422,7 +417,8 @@ export function normalizeBaseUrl(value: string): string {
  * Temporarily disable TLS certificate verification for Node `fetch` (sets
  * NODE_TLS_REJECT_UNAUTHORIZED). Used for `--insecure` login and token refresh.
  */
-async function runWithTlsInsecure<T>(tlsInsecure: boolean | undefined, fn: () => Promise<T>): Promise<T> {
+/** @internal Exported for CLI env-only identity resolution (`env-snapshot.ts`). */
+export async function runWithTlsInsecure<T>(tlsInsecure: boolean | undefined, fn: () => Promise<T>): Promise<T> {
   if (!tlsInsecure) {
     return fn();
   }
@@ -1624,6 +1620,20 @@ async function tryAcceptConsentAfterSignin(
   return null;
 }
 
+const STUDIOWEB_SHELL_UNAVAILABLE_SNIPPETS = [
+  "Studioweb signin endpoint not available",
+  "Cannot reach studioweb signin endpoint",
+] as const;
+
+/**
+ * True when {@link oauth2PasswordSigninLogin} failed because the Studio web sign-in shell
+ * (`/interface/studioweb/login`) is missing or unreachable — callers may fall back to Playwright.
+ */
+export function isStudiowebShellUnavailableError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return STUDIOWEB_SHELL_UNAVAILABLE_SNIPPETS.some((s) => msg.includes(s));
+}
+
 /**
  * OAuth2 Authorization Code login using HTTP **only**: `GET /oauth2/signin` (Next.js shell) and
  * `POST /oauth2/signin` with an RSA PKCS#1 v1.5–encrypted password (same as the browser `rsa.min` / Studio
@@ -1668,6 +1678,39 @@ export async function oauth2PasswordSigninLogin(
     const scope = options.scope ?? DEFAULT_SCOPE;
     const redirectUri = `http://127.0.0.1:${port}/callback`;
 
+    const state = randomBytes(12).toString("hex");
+    const oauthProduct =
+      options.oauthProduct?.trim() ||
+      (typeof process.env.KWEAVER_OAUTH_PRODUCT === "string" && process.env.KWEAVER_OAUTH_PRODUCT.trim()
+        ? process.env.KWEAVER_OAUTH_PRODUCT.trim()
+        : "adp");
+
+    // Pre-flight: verify studioweb signin shell exists (same entry as deploy auto_config.sh get_token).
+    // If the deployment lacks studioweb, abort before OAuth client registration.
+    const studiowebProbeUrl =
+      `${base}/interface/studioweb/login?lang=zh-cn&state=${encodeURIComponent(state)}` +
+      `&x-forwarded-prefix=&integrated=false&product=${encodeURIComponent(oauthProduct)}&_t=${Date.now()}`;
+    let probeResp: Response;
+    try {
+      probeResp = await fetch(studiowebProbeUrl, { method: "GET", redirect: "manual" });
+    } catch (cause) {
+      throw new Error(
+        `Cannot reach studioweb signin endpoint at ${base}/interface/studioweb/login. ` +
+          `The deployment may not include studioweb. Use \`kweaver auth login ${base}\` ` +
+          `(OAuth code flow) instead.\n  Cause: ${cause instanceof Error ? cause.message : String(cause)}`,
+      );
+    }
+    const probeOk2xx = probeResp.status >= 200 && probeResp.status < 300;
+    const probeOkRedirect = [301, 302, 303, 307, 308].includes(probeResp.status);
+    await probeResp.text().catch(() => "");
+    if (!probeOk2xx && !probeOkRedirect) {
+      throw new Error(
+        `Studioweb signin endpoint not available at ${base}/interface/studioweb/login ` +
+          `(HTTP ${probeResp.status}). The deployment may not include studioweb. ` +
+          `Use \`kweaver auth login ${base}\` (OAuth code flow) instead.`,
+      );
+    }
+
     let client: ClientConfig;
     try {
       client = await resolveOrRegisterClient(base, redirectUri, scope, {
@@ -1686,13 +1729,6 @@ export async function oauth2PasswordSigninLogin(
 
     const usePkce = !client.clientSecret;
     const pkce = usePkce ? await generatePkce() : null;
-    const state = randomBytes(12).toString("hex");
-
-    const oauthProduct =
-      options.oauthProduct?.trim() ||
-      (typeof process.env.KWEAVER_OAUTH_PRODUCT === "string" && process.env.KWEAVER_OAUTH_PRODUCT.trim()
-        ? process.env.KWEAVER_OAUTH_PRODUCT.trim()
-        : "adp");
 
     const authParams = new URLSearchParams({
       redirect_uri: redirectUri,
@@ -1793,75 +1829,90 @@ export async function oauth2PasswordSigninLogin(
     };
 
     const origin = new URL(base).origin;
-    let postResp: Response | undefined;
-    for (let i = 0; i < pems.length; i++) {
-      const pem = pems[i];
-      const encrypted = publicEncrypt(
-        { key: pem, padding: cryptoConstants.RSA_PKCS1_PADDING },
-        Buffer.from(options.password, "utf8"),
-      );
-      const rawB64 = encrypted.toString("base64");
-      const passwordB64 = usePlainB64 ? rawB64 : formatPasswordBase64LikeRsaMin(rawB64);
-      postBody.password = passwordB64;
+    /** Some gateways (e.g. DIP) return HTTP 200 + `{"redirect":"..."}` instead of 3xx Location. */
+    let signinRedirectFromJson: string | undefined;
 
-      postResp = await fetch(`${base}/oauth2/signin`, {
-        method: "POST",
-        headers: {
-          Cookie: jar,
-          "Content-Type": "application/json",
-          Accept: "application/json, text/plain, */*",
-          Origin: origin,
-          Referer: signinUrl.href,
-        },
-        body: JSON.stringify(postBody),
-        redirect: "manual",
-      });
-      jar = mergeCookieJarForSignin(jar, postResp);
+    // Single fixed RSA public key (STUDIOWEB_LOGIN_PUBLIC_KEY_PEM) unless the caller overrides via
+    // --signin-public-key-file / KWEAVER_SIGNIN_RSA_PUBLIC_KEY. No fallback list, no candidate noise.
+    const pem = pems[0];
+    const encrypted = publicEncrypt(
+      { key: pem, padding: cryptoConstants.RSA_PKCS1_PADDING },
+      Buffer.from(options.password, "utf8"),
+    );
+    const rawB64 = encrypted.toString("base64");
+    const passwordB64 = usePlainB64 ? rawB64 : formatPasswordBase64LikeRsaMin(rawB64);
+    postBody.password = passwordB64;
 
-      if (postResp.status === 302 || postResp.status === 303 || postResp.status === 307) {
-        break;
-      }
+    const postResp = await fetch(`${base}/oauth2/signin`, {
+      method: "POST",
+      headers: {
+        Cookie: jar,
+        "Content-Type": "application/json",
+        Accept: "application/json, text/plain, */*",
+        Origin: origin,
+        Referer: signinUrl.href,
+      },
+      body: JSON.stringify(postBody),
+      redirect: "manual",
+    });
+    jar = mergeCookieJarForSignin(jar, postResp);
 
+    if (postResp.status !== 302 && postResp.status !== 303 && postResp.status !== 307) {
       const bodyText = await postResp.text();
-      const rsaMismatch = /RSA_private_decrypt/i.test(bodyText);
-      if (rsaMismatch && i < pems.length - 1) {
-        process.stderr.write(
-          "HTTP sign-in: RSA ciphertext rejected by server (wrong public key); trying next candidate…\n",
+
+      if (/RSA_private_decrypt/i.test(bodyText)) {
+        throw new Error(
+          "HTTP sign-in: RSA ciphertext rejected by server. The built-in STUDIOWEB_LOGIN_PUBLIC_KEY_PEM " +
+            "does not match this deployment's `/oauth2/signin` public key. Provide the correct key via " +
+            "--signin-public-key-file <pem> or KWEAVER_SIGNIN_RSA_PUBLIC_KEY=...",
         );
-        continue;
       }
 
       if (postResp.status === 200) {
         const ct = postResp.headers.get("content-type") ?? "";
-        if (ct.includes("application/json")) {
+        const looksLikeJson =
+          ct.includes("application/json") || /^\s*\{/.test(bodyText);
+        if (looksLikeJson) {
           let j: Record<string, unknown>;
           try {
             j = JSON.parse(bodyText) as Record<string, unknown>;
           } catch {
             throw new Error(`Sign-in failed: ${bodyText.slice(0, 500)}`);
           }
-          const msg =
-            typeof j.message === "string"
-              ? j.message
-              : typeof j.error === "string"
-                ? j.error
-                : bodyText.slice(0, 500);
-          throw new Error(`Sign-in failed: ${msg}`);
+          const redir = j.redirect;
+          if (typeof redir === "string" && redir.trim() !== "") {
+            signinRedirectFromJson = redir.trim();
+          } else {
+            const msg =
+              typeof j.message === "string"
+                ? j.message
+                : typeof j.error === "string"
+                  ? j.error
+                  : bodyText.slice(0, 500);
+            throw new Error(`Sign-in failed: ${msg}`);
+          }
+        } else {
+          throw new Error(
+            "Sign-in POST returned 200 without redirect. Check password, CSRF, or RSA public key PEM.",
+          );
         }
-        throw new Error(
-          "Sign-in POST returned 200 without redirect. Check password, CSRF, or RSA public key PEM.",
-        );
+      } else {
+        throw new HttpError(postResp.status, postResp.statusText, bodyText);
       }
-
-      throw new HttpError(postResp.status, postResp.statusText, bodyText);
-    }
-
-    if (!postResp) {
-      throw new Error("HTTP sign-in: no response (internal error)");
     }
 
     let code: string;
-    if (postResp.status === 302 || postResp.status === 303 || postResp.status === 307) {
+    if (signinRedirectFromJson) {
+      const out = await followSigninRedirectsUntilCallback(
+        new URL(signinRedirectFromJson, base).href,
+        jar,
+        state,
+        redirectUri,
+        base,
+        scope,
+      );
+      code = out.code;
+    } else if (postResp.status === 302 || postResp.status === 303 || postResp.status === 307) {
       const loc = postResp.headers.get("location");
       if (!loc) {
         throw new HttpError(postResp.status, "Missing Location after sign-in", "");

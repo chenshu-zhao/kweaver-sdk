@@ -235,11 +235,13 @@ result = client.dataflows.execute(
 
 ```bash
 kweaver auth login <url> [--alias name] [--no-browser] [-u user] [-p pass] [--http-signin] [--playwright] [--insecure|-k]
+# -u/-p：默认 HTTP /oauth2/signin；无 studioweb 时已装 Playwright 则回退无头浏览器，否则提示安装；--http-signin 仅 HTTP；--playwright 强制浏览器
 kweaver auth login <url> --client-id ID --client-secret S --refresh-token T   （无浏览器主机）
-kweaver auth export [url|alias] [--json]   auth status/list/use/delete/logout
-kweaver config show / list-bd / set-bd <value>   # 平台业务域，登录后优先执行
+kweaver auth export [url|alias] [--json]
+kweaver auth status / whoami [url|alias] [--json]   # 无 ~/.kweaver/ 当前平台时可配 KWEAVER_BASE_URL+KWEAVER_TOKEN
+kweaver auth list/use/delete/logout
+kweaver config show / list-bd / set-bd <value>   # 业务域；show 可配合 KWEAVER_BASE_URL 使用
 kweaver token
-kweaver config show / set-bd <value>
 kweaver ds list/get/delete/tables/connect
 kweaver ds import-csv <ds_id> --files <glob> [--table-prefix <p>] [--batch-size 500] [--recreate]
 kweaver dataview|dv list/find/get/query/delete
