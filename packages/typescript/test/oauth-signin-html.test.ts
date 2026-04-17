@@ -10,7 +10,6 @@ import {
   isStudiowebShellUnavailableError,
   parseSigninPageHtmlProps,
   rsaModulusHexToSpkiPem,
-  STUDIO_SIGNIN_RSA_MODULUS_HEX,
   STUDIOWEB_LOGIN_PUBLIC_KEY_PEM,
 } from "../src/auth/oauth.js";
 
@@ -87,12 +86,6 @@ test("parseSigninPageHtmlProps: RSA material under props but outside pageProps",
 
 test("rsaModulusHexToSpkiPem: default (DIP/ISF) modulus yields PEM with BEGIN PUBLIC KEY", () => {
   const pem = rsaModulusHexToSpkiPem(DEFAULT_SIGNIN_RSA_MODULUS_HEX);
-  assert.ok(pem.includes("BEGIN PUBLIC KEY"));
-  assert.ok(pem.includes("END PUBLIC KEY"));
-});
-
-test("rsaModulusHexToSpkiPem: Studio modulus yields PEM with BEGIN PUBLIC KEY", () => {
-  const pem = rsaModulusHexToSpkiPem(STUDIO_SIGNIN_RSA_MODULUS_HEX);
   assert.ok(pem.includes("BEGIN PUBLIC KEY"));
   assert.ok(pem.includes("END PUBLIC KEY"));
 });

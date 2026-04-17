@@ -269,5 +269,5 @@ export {
   oauth2PasswordSigninLogin,
   parseSigninPageHtmlProps,
   rsaModulusHexToSpkiPem,
-  STUDIO_SIGNIN_RSA_MODULUS_HEX,
+  STUDIOWEB_LOGIN_PUBLIC_KEY_PEM,
 } from "./auth/oauth.js";

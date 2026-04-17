@@ -27,20 +27,8 @@ const DEFAULT_REDIRECT_PORT = 9010;
 const DEFAULT_SCOPE = "openid offline all";
 
 /**
- * KWeaver Studio shell modulus (hex) — used when `pageProps` does not expose a key (some Studio builds).
- * See kweaver-ai/studio `studio-web-static/src/core/mediator/auth/index.ts`.
- */
-export const STUDIO_SIGNIN_RSA_MODULUS_HEX =
-  "BB24BD0371A3141EE992761C574F1AA20010420C446144922C00F07EFB3C752" +
-  "0D81210A3C66DEC43B75A2370D01CD1F23E1BFC93B907201F5116F29A2C8149" +
-  "E2D2671313A0A78E455BBFC20B802BA1CBEE1EBBEDA50290F040F0FD4EBE89F" +
-  "24DB546EBB6B16579675551B9016A1A6FDCE6F6933901395453885CF55369AD" +
-  "B999";
-
-/**
- * Studioweb hardcoded LOGIN public key (PEM).
+ * Studioweb hardcoded LOGIN public key (PEM) — the single key used for HTTP `/oauth2/signin`.
  * Source: kweaver-ai/kweaver `deploy/auto_cofig/auto_config.sh` `LOGIN_PUBLIC_KEY`.
- * High-priority candidate for HTTP `/oauth2/signin` when the server rejects other keys.
  */
 export const STUDIOWEB_LOGIN_PUBLIC_KEY_PEM = `-----BEGIN PUBLIC KEY-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsyOstgbYuubBi2PUqeVj
@@ -59,13 +47,6 @@ fUaGD2A1u1qdIuNc+XuisFeNcUW6fct0+x97eS2eEGRr/7qxWmO/P20sFVzXc2bF
  */
 export const DEFAULT_SIGNIN_RSA_MODULUS_HEX =
   "C1D9F84B95AF6B331FBA2D64D76A39CAD7529DA79DB4B3543E4DF3DF21723FEC6F7E2F6602E11037339AE0462DF6B39F94150FC256A505A8CA95BB3699E25C3FB84764D6A1DC3F483A2C1DC4F70925D85725151D0CFBF1EB5A6C4FA0E37ED32FED150C717CD82C528745CDB761D17635AC855421B3CBBEE7D405B2CA5C70CFA7";
-
-/**
- * Sample SPKI Base64 (no PEM headers) from af-agent `auth.py` / AnyFabric-style gateways — tried when
- * ISF/DIP/Studio built-in moduli do not match the server (EACP `RSA_private_decrypt`).
- */
-const ANYFABRIC_SAMPLE_SPKI_BASE64 =
-  "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4E+eiWRwffhRIPQYvlXUjf0b3HqCmosiCxbFCYI/gdfDBhrTUzbt3fL3o/gRQQBEPf69vhJMFH2ZMtaJM6ohE3yQef331liPVM0YvqMOgvoID+zDa1NIZFObSsjOKhvZtv9esO0REeiVEPKNc+Dp6il3x7TV9VKGEv0+iriNjqv7TGAexo2jVtLm50iVKTju2qmCDG83SnVHzsiNj70MiviqiLpgz72IxjF+xN4bRw8I5dD0GwwO8kDoJUGWgTds+VckCwdtZA65oui9Osk5t1a4pg6Xu9+HFcEuqwJTDxATvGAz1/YW0oUisjM0ObKTRDVSfnTYeaBsN6L+M+8gCwIDAQAB";
 
 /**
  * Default PEM for HTTP `/oauth2/signin`: **the fixed `STUDIOWEB_LOGIN_PUBLIC_KEY_PEM`** (matches
