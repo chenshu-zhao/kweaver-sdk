@@ -159,7 +159,7 @@ kweaver auth login <url> --client-id ID --client-secret S --refresh-token T   (h
 kweaver auth export [url|alias] [--json]   (export command to run on a headless host)
 kweaver auth status / whoami [url|alias] [--json]   # whoami: --json; with KWEAVER_BASE_URL+KWEAVER_TOKEN when no ~/.kweaver/ platform
 kweaver auth list/use/delete/logout
-kweaver config show / list-bd / set-bd <value>   # platform business domain — show also works with KWEAVER_BASE_URL
+kweaver config show / list-bd / set-bd <value>   # platform business domain — show/list-bd work with KWEAVER_BASE_URL (+ KWEAVER_TOKEN for list-bd)
 kweaver token
 kweaver ds list/get/delete/tables/connect
 kweaver ds import-csv <ds_id> --files <glob> [--table-prefix <p>] [--batch-size 500] [--recreate]

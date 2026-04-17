@@ -63,9 +63,9 @@ export async function runConfigCommand(args: string[]): Promise<number> {
   }
 
   if (sub === "list-bd") {
-    const platform = getCurrentPlatform();
+    const platform = getCurrentPlatform() ?? process.env.KWEAVER_BASE_URL?.trim();
     if (!platform) {
-      console.error("No active platform. Run `kweaver auth login <url>` first.");
+      console.error("No active platform. Run `kweaver auth login <url>` first.\n  Tip: set KWEAVER_BASE_URL and KWEAVER_TOKEN to use this command without a saved login.");
       return 1;
     }
     try {
