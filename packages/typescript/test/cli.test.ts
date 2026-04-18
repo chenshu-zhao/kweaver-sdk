@@ -110,6 +110,42 @@ test("parseCallArgs supports custom business domain", () => {
   assert.equal(parsed.businessDomain, "bd_enterprise");
 });
 
+test("parseCallArgs accepts -F string field", () => {
+  const inv = parseCallArgs(["/api/x", "-F", "metadata_type=openapi"]);
+  assert.equal(inv.method, "POST");
+  assert.ok(inv.formFields, "formFields should be set");
+  assert.deepEqual(inv.formFields, [{ name: "metadata_type", kind: "string", value: "openapi" }]);
+});
+
+test("parseCallArgs accepts -F file field", () => {
+  const inv = parseCallArgs(["/api/x", "-F", "data=@/tmp/spec.json"]);
+  assert.deepEqual(inv.formFields, [{ name: "data", kind: "file", path: "/tmp/spec.json" }]);
+});
+
+test("parseCallArgs rejects mixing -F and -d", () => {
+  assert.throws(
+    () => parseCallArgs(["/api/x", "-F", "a=b", "-d", "{}"]),
+    /-F.*-d/i
+  );
+});
+
+test("parseCallArgs rejects malformed -F", () => {
+  assert.throws(() => parseCallArgs(["/api/x", "-F", "noequalsign"]), /-F/);
+});
+
+test("parseCallArgs accumulates multiple -F fields in order", () => {
+  const inv = parseCallArgs([
+    "/api/x",
+    "-F", "metadata_type=openapi",
+    "-F", "data=@/tmp/spec.json",
+  ]);
+  assert.equal(inv.formFields?.length, 2);
+  assert.equal(inv.formFields?.[0].name, "metadata_type");
+  assert.equal(inv.formFields?.[0].kind, "string");
+  assert.equal(inv.formFields?.[1].name, "data");
+  assert.equal(inv.formFields?.[1].kind, "file");
+});
+
 test("parseTokenArgs accepts no flags", () => {
   assert.doesNotThrow(() => parseTokenArgs([]));
   assert.throws(() => parseTokenArgs(["--verbose"]), /Usage: kweaver token/);
