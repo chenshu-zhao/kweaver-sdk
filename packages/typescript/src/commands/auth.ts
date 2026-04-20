@@ -882,25 +882,16 @@ Platform URL is optional; defaults to the current active platform (kweaver auth 
     if (KNOWN_CP_VALUE.has(a)) i++;
   }
 
-  let normalizedTarget: string;
-  if (positional) {
-    const resolved = /^https?:\/\//.test(positional)
-      ? positional
-      : resolvePlatformIdentifier(positional) ?? positional;
-    if (!/^https?:\/\//.test(resolved)) {
-      console.error(`Cannot resolve platform: ${positional}. Provide a full URL or a known alias (kweaver auth list).`);
-      return 1;
-    }
-    normalizedTarget = normalizeBaseUrl(resolved);
-  } else {
-    const current = getCurrentPlatform();
-    if (!current) {
-      console.error(
-        "No active platform. Pass <platform-url> or run `kweaver auth use <url|alias>` first.",
-      );
-      return 1;
-    }
-    normalizedTarget = current;
+  const normalizedTarget = resolvePlatformArg(args);
+  if (!normalizedTarget) {
+    console.error(
+      "No platform resolved. Pass <platform-url|alias> or run `kweaver auth use <url|alias>` first.",
+    );
+    return 1;
+  }
+  if (!/^https?:\/\//.test(normalizedTarget)) {
+    console.error(`Cannot resolve platform: ${normalizedTarget}. Provide a full URL or a known alias (kweaver auth list).`);
+    return 1;
   }
 
   const account =
