@@ -535,14 +535,19 @@ function stderrEmphasis(text: string): string {
 /**
  * Headless login: read authorization code from stdin (full callback URL or raw code).
  * Used with `--no-browser` or when automatic browser launch fails.
+ *
+ * `io` is injectable for tests; defaults to `process.stdin` / `process.stderr`.
  */
-async function promptForCode(
+export async function promptForCode(
   authUrl: string,
   state: string,
   port: number,
   pasteMode: "explicit" | "fallback" = "explicit",
+  io?: { input?: NodeJS.ReadableStream; output?: NodeJS.WritableStream },
 ): Promise<string> {
   const { createInterface } = await import("node:readline");
+  const stdin = io?.input ?? process.stdin;
+  const stderr = io?.output ?? process.stderr;
   const intro =
     pasteMode === "explicit"
       ? "Open this URL on any device (use a private/incognito window if you need the full sign-in form):\n\n"
@@ -551,16 +556,24 @@ async function promptForCode(
     "After login, the browser may show an error page (this is expected if nothing listens on localhost).\n" +
     "Copy the FULL URL from the address bar and paste it here, or paste only the authorization code.\n" +
     `The URL looks like: http://127.0.0.1:${port}/callback?code=THIS_PART&state=...\n\n`;
-  process.stderr.write(
+  stderr.write(
     "\n" +
       intro +
       `  ${authUrl}\n\n` +
       stderrEmphasis(pasteInstructions),
   );
-  const rl = createInterface({ input: process.stdin, output: process.stderr });
+  const rl = createInterface({ input: stdin, output: stderr });
+  // The `close` listener exists to surface Ctrl-D / EOF before the user answers.
+  // It MUST be a no-op once the question callback has fired, because `rl.close()`
+  // emits `close` synchronously and would otherwise reject the promise before
+  // `resolve(answer)` runs (race condition that turns valid input into "Login cancelled.").
   const input = await new Promise<string>((resolve, reject) => {
-    rl.on("close", () => reject(new Error("Login cancelled.")));
+    let answered = false;
+    rl.on("close", () => {
+      if (!answered) reject(new Error("Login cancelled."));
+    });
     rl.question("Paste URL or code> ", (answer) => {
+      answered = true;
       rl.close();
       resolve(answer.trim());
     });
