@@ -54,7 +54,7 @@ kweaver auth users [url|alias]       List all user profiles (with usernames) for
 kweaver auth switch [url|alias] --user <id|username>  Switch active user for a platform
 kweaver auth logout [url|alias] [--user <id>]  Logout (clear local token)
 kweaver auth delete <url|alias> [--user <id>]  Delete saved credentials
-kweaver auth change-password [<url>] [-u <account>] [-o <old>] [-n <new>]  Change password (EACP modifypassword; URL & account optional, no token required)
+kweaver auth change-password [<url>] [-u <account>] [-o <old>] [-n <new>]  Change password
 
 Login options:
   --alias <name>         Save platform with a short alias (use with use / status / logout)
