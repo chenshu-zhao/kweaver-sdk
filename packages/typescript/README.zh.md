@@ -141,6 +141,12 @@ const results = await cl.search({ query: "高血压 治疗" });
 // Skill（注册表/市场/渐进式读取）
 const skills = await client.skills.market({ name: "kweaver" });
 const skillMd = await client.skills.fetchContent("skill-id");
+const draft = await client.skills.updateMetadata("skill-id", {
+  name: "Demo",
+  description: "Demo skill",
+  category: "system",
+});
+const history = await client.skills.history("skill-id");
 ```
 
 ## 命令速查
@@ -167,7 +173,7 @@ kweaver bkn subgraph
 kweaver bkn action-execution get
 kweaver bkn action-log list/get/cancel
 kweaver agent list/get/chat/sessions/history
-kweaver skill list/market/get/register/status/delete/content/read-file/download/install
+kweaver skill list/market/get/market-get/register/status/delete/update-metadata/update-package/history/republish/publish-history/content/read-file/download/install
 kweaver vega health|stats|inspect|sql|catalog|resource|connector-type
 kweaver context-loader config set/use/list/show
 kweaver context-loader kn-search/query-object-instance/...
