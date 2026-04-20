@@ -18,6 +18,23 @@ import {
 } from "../config/store.js";
 import { HttpError, NetworkRequestError, fetchWithRetry } from "../utils/http.js";
 
+/** Thrown when `POST /oauth2/signin` returns HTTP 401 with EACP code `401001017` (initial password must be changed). */
+export class InitialPasswordChangeRequiredError extends Error {
+  readonly code = 401001017;
+  readonly account: string;
+  readonly baseUrl: string;
+  readonly httpStatus = 401;
+  readonly serverMessage: string;
+
+  constructor(opts: { account: string; baseUrl: string; serverMessage: string }) {
+    super(opts.serverMessage);
+    this.name = "InitialPasswordChangeRequiredError";
+    this.account = opts.account;
+    this.baseUrl = opts.baseUrl;
+    this.serverMessage = opts.serverMessage;
+  }
+}
+
 const TOKEN_TTL_SECONDS = 3600;
 
 /** Seconds before access token expiry to trigger refresh (matches Python ConfigAuth). */
@@ -1535,6 +1552,25 @@ export async function oauth2PasswordSigninLogin(
           );
         }
       } else {
+        if (postResp.status === 401) {
+          try {
+            const j = JSON.parse(bodyText) as { code?: unknown; message?: unknown };
+            const c = j.code;
+            if (c === 401001017 || c === "401001017") {
+              const msg =
+                typeof j.message === "string" && j.message.trim() !== ""
+                  ? j.message.trim()
+                  : "Initial password must be changed before login.";
+              throw new InitialPasswordChangeRequiredError({
+                account: options.username,
+                baseUrl: base,
+                serverMessage: msg,
+              });
+            }
+          } catch (e) {
+            if (e instanceof InitialPasswordChangeRequiredError) throw e;
+          }
+        }
         throw new HttpError(postResp.status, postResp.statusText, bodyText);
       }
     }
@@ -1967,6 +2003,9 @@ function isTlsVerificationDisabledForProcess(): boolean {
 }
 
 export function formatHttpError(error: unknown): string {
+  if (error instanceof InitialPasswordChangeRequiredError) {
+    return `${error.serverMessage} (code ${error.code})`;
+  }
   if (error instanceof HttpError) {
     const oauthMessage = formatOAuthErrorBody(error.body);
     if (oauthMessage) {

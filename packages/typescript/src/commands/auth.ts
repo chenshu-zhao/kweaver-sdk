@@ -22,10 +22,13 @@ import {
   setCurrentPlatform,
   setPlatformAlias,
 } from "../config/store.js";
+import { readFile } from "node:fs/promises";
 import { decodeJwtPayload } from "../config/jwt.js";
+import { eacpModifyPassword } from "../auth/eacp-modify-password.js";
 import {
   buildCopyCommand,
   formatHttpError,
+  InitialPasswordChangeRequiredError,
   normalizeBaseUrl,
   oauth2Login,
   oauth2PasswordSigninLogin,
@@ -50,6 +53,7 @@ kweaver auth users [url|alias]       List all user profiles (with usernames) for
 kweaver auth switch [url|alias] --user <id|username>  Switch active user for a platform
 kweaver auth logout [url|alias] [--user <id>]  Logout (clear local token)
 kweaver auth delete <url|alias> [--user <id>]  Delete saved credentials
+kweaver auth change-password <url> -u <account> [-o <old>] [-n <new>]  Change password (EACP modifypassword; no token required)
 
 Login options:
   --alias <name>         Save platform with a short alias (use with use / status / logout)
@@ -67,6 +71,7 @@ Login options:
   -u, --username         Username for HTTP /oauth2/signin (POST). If -p is omitted, password is prompted.
   -p, --password         Password for HTTP /oauth2/signin (POST). If -u is omitted, username is prompted.
   --http-signin          Force HTTP /oauth2/signin (no browser). Missing -u/-p are prompted from stdin.
+  --new-password <pwd>   After HTTP sign-in error 401001017 (initial password), set the new password non-interactively, then retry login.
   --insecure, -k         Skip TLS certificate verification (self-signed / dev HTTPS only)
   --no-auth              Save platform without OAuth (servers with no authentication). Same as detecting OAuth 404 during login.`);
 
@@ -75,7 +80,7 @@ Login options:
 
   if (target === "login") {
     if (rest[0] === "--help" || rest[0] === "-h") {
-      console.log(`kweaver auth login <platform-url> [--alias <name>] [--no-auth] [--no-browser] [-u user] [-p pass] [--http-signin] [--refresh-token T --client-id ID --client-secret S]`);
+      console.log(`kweaver auth login <platform-url> [--alias <name>] [--no-auth] [--no-browser] [-u user] [-p pass] [--new-password <pwd>] [--http-signin] [--refresh-token T --client-id ID --client-secret S]`);
       return 0;
     }
     const url = rest[0];
@@ -104,6 +109,10 @@ Login options:
     return runAuthSwitchCommand(rest);
   }
 
+  if (target === "change-password") {
+    return runAuthChangePasswordCommand(rest);
+  }
+
   const LOGIN_SUBCOMMANDS = new Set(["status", "list", "use", "delete", "logout", "export", "whoami", "users", "switch"]);
   if (target && !LOGIN_SUBCOMMANDS.has(target)) {
     try {
@@ -122,6 +131,7 @@ Login options:
       const tlsInsecure = args.includes("--insecure") || args.includes("-k");
       const noAuth = args.includes("--no-auth");
       const noBrowser = args.includes("--no-browser");
+      const newPasswordFlag = readOption(args, "--new-password");
 
       if (args.includes("--redirect-uri")) {
         console.error("Warning: --redirect-uri is deprecated and ignored. The redirect URI is always http://127.0.0.1:<port>/callback.");
@@ -131,6 +141,7 @@ Login options:
         "--alias", "--client-id", "--client-secret", "--refresh-token",
         "--port", "--no-browser", "--username", "-u", "--password", "-p",
         "--http-signin",
+        "--new-password",
         "--oauth-product",
         "--signin-public-key-file",
         "--insecure", "-k", "--no-auth", "--redirect-uri",
@@ -138,6 +149,7 @@ Login options:
       const KNOWN_VALUE_FLAGS = new Set([
         "--alias", "--client-id", "--client-secret", "--refresh-token",
         "--port", "--username", "-u", "--password", "-p", "--redirect-uri",
+        "--new-password",
         "--oauth-product",
         "--signin-public-key-file",
       ]);
@@ -165,6 +177,10 @@ Login options:
       }
       if (noAuth && (username || password || httpSignin)) {
         console.error("--no-auth cannot be used with HTTP sign-in or -u/-p.");
+        return 1;
+      }
+      if (newPasswordFlag !== undefined && (!username || !password)) {
+        console.error("--new-password requires -u/--username and -p/--password (HTTP sign-in).");
         return 1;
       }
       if (noBrowser && httpSignin) {
@@ -206,30 +222,22 @@ Login options:
         token = await refreshTokenLogin(normalizedTarget, {
           clientId, clientSecret, refreshToken, tlsInsecure,
         });
-      } else if (username && password && httpSignin) {
-        console.log("Logging in (HTTP /oauth2/signin)...");
-        token = await oauth2PasswordSigninLogin(normalizedTarget, {
-          username,
-          password,
-          tlsInsecure,
-          port: customPort,
-          clientId: clientId ?? undefined,
-          clientSecret: clientSecret ?? undefined,
-          oauthProduct: oauthProduct ?? undefined,
-          signinPublicKeyPemPath: signinPublicKeyFile ?? undefined,
-        });
       } else if (username && password) {
         console.log("Logging in (HTTP /oauth2/signin)...");
-        token = await oauth2PasswordSigninLogin(normalizedTarget, {
-          username,
-          password,
-          tlsInsecure,
-          port: customPort,
-          clientId: clientId ?? undefined,
-          clientSecret: clientSecret ?? undefined,
-          oauthProduct: oauthProduct ?? undefined,
-          signinPublicKeyPemPath: signinPublicKeyFile ?? undefined,
-        });
+        token = await loginWithInitialPasswordRecovery(
+          normalizedTarget,
+          {
+            username,
+            password,
+            tlsInsecure,
+            port: customPort,
+            clientId: clientId ?? undefined,
+            clientSecret: clientSecret ?? undefined,
+            oauthProduct: oauthProduct ?? undefined,
+            signinPublicKeyPemPath: signinPublicKeyFile ?? undefined,
+          },
+          { newPasswordFlag, tlsInsecure },
+        );
       } else {
         if (noBrowser) {
           console.log("OAuth2 login (no browser — open the URL on any device, then paste the callback URL or code)...");
@@ -719,4 +727,230 @@ function readOption(args: string[], name: string): string | undefined {
   }
 
   return args[index + 1];
+}
+
+const EACP_NEW_PWD_MIN = 6;
+const EACP_NEW_PWD_MAX = 100;
+
+function validateNewPasswordLengthForEacp(pwd: string): void {
+  if (pwd.length < EACP_NEW_PWD_MIN || pwd.length > EACP_NEW_PWD_MAX) {
+    throw new Error(
+      `New password must be between ${EACP_NEW_PWD_MIN} and ${EACP_NEW_PWD_MAX} characters.`,
+    );
+  }
+}
+
+function formatEacpModifyFailure(
+  status: number,
+  json: unknown | undefined,
+  body: string,
+): string {
+  if (json && typeof json === "object" && json !== null) {
+    const o = json as { message?: unknown; cause?: unknown };
+    const msg =
+      typeof o.message === "string" && o.message.trim() !== ""
+        ? o.message
+        : typeof o.cause === "string"
+          ? o.cause
+          : "";
+    if (msg) return `Password change failed (HTTP ${status}): ${msg}`;
+  }
+  return `Password change failed (HTTP ${status}): ${body.slice(0, 500)}`;
+}
+
+async function promptYesNo(message: string): Promise<boolean> {
+  const { createInterface } = await import("node:readline");
+  const rl = createInterface({ input: process.stdin, output: process.stderr });
+  return await new Promise<boolean>((resolve, reject) => {
+    let answered = false;
+    rl.on("close", () => {
+      if (!answered) reject(new Error("Login cancelled."));
+    });
+    rl.question(`${message} [Y/n] `, (answer) => {
+      answered = true;
+      rl.close();
+      const a = answer.trim().toLowerCase();
+      resolve(a === "" || a === "y" || a === "yes");
+    });
+  });
+}
+
+async function loginWithInitialPasswordRecovery(
+  normalizedTarget: string,
+  signinOpts: Parameters<typeof oauth2PasswordSigninLogin>[1],
+  recovery: { newPasswordFlag: string | undefined; tlsInsecure: boolean },
+) {
+  try {
+    return await oauth2PasswordSigninLogin(normalizedTarget, signinOpts);
+  } catch (e) {
+    if (!(e instanceof InitialPasswordChangeRequiredError)) throw e;
+    const err = e;
+    const account = signinOpts.username;
+    const oldPwd = signinOpts.password;
+
+    let newPwd: string | undefined = recovery.newPasswordFlag;
+
+    if (newPwd !== undefined) {
+      validateNewPasswordLengthForEacp(newPwd);
+    } else if (process.stderr.isTTY) {
+      process.stderr.write(`${err.serverMessage}\n`);
+      const ok = await promptYesNo(
+        `Account "${account}" must change its initial password. Proceed with password change now?`,
+      );
+      if (!ok) {
+        throw new Error("Initial password change declined. Run again when ready.");
+      }
+      const np1 = await promptForPassword("New password (6-100 characters)");
+      const np2 = await promptForPassword("Confirm new password");
+      if (np1 !== np2) {
+        throw new Error("New passwords do not match.");
+      }
+      validateNewPasswordLengthForEacp(np1);
+      newPwd = np1;
+    } else {
+      throw new Error(
+        "This account must change its initial password (error 401001017). Re-run with --new-password <password> (non-interactive).",
+      );
+    }
+
+    const mod = await eacpModifyPassword(normalizedTarget, {
+      account,
+      oldPassword: oldPwd,
+      newPassword: newPwd,
+      tlsInsecure: recovery.tlsInsecure,
+    });
+    if (!mod.ok) {
+      throw new Error(formatEacpModifyFailure(mod.status, mod.json, mod.body));
+    }
+
+    return oauth2PasswordSigninLogin(normalizedTarget, {
+      ...signinOpts,
+      password: newPwd,
+    });
+  }
+}
+
+async function runAuthChangePasswordCommand(args: string[]): Promise<number> {
+  if (args[0] === "--help" || args[0] === "-h") {
+    console.log(`kweaver auth change-password <platform-url> [options]
+
+Change the EACP account password via POST /api/eacp/v1/auth1/modifypassword.
+No saved OAuth token is required.
+
+Options:
+  -u, --account <name>       Account / login name (required)
+  -o, --old-password <pwd>   Current password (omit on TTY to be prompted)
+  -n, --new-password <pwd>   New password, 6-100 characters (omit on TTY to be prompted)
+  --public-key-file <path>   Override RSA public key (PEM) for password encryption
+  --insecure, -k             Skip TLS certificate verification`);
+    return 0;
+  }
+
+  const url = args[0];
+  if (!url || url.startsWith("-")) {
+    console.error(
+      "Usage: kweaver auth change-password <platform-url> -u <account> [-o <old-password>] [-n <new-password>] [--public-key-file <path>] [--insecure|-k]",
+    );
+    return 1;
+  }
+  if (!/^https?:\/\//.test(url)) {
+    console.error("Expected a platform URL starting with http:// or https://.");
+    return 1;
+  }
+
+  const KNOWN_CP_FLAGS = new Set([
+    "-u",
+    "--account",
+    "-o",
+    "--old-password",
+    "-n",
+    "--new-password",
+    "--public-key-file",
+    "--insecure",
+    "-k",
+    "--help",
+    "-h",
+  ]);
+  const KNOWN_CP_VALUE = new Set([
+    "-u",
+    "--account",
+    "-o",
+    "--old-password",
+    "-n",
+    "--new-password",
+    "--public-key-file",
+  ]);
+  for (let i = 1; i < args.length; i++) {
+    const a = args[i];
+    if (a.startsWith("-") && !KNOWN_CP_FLAGS.has(a)) {
+      console.error(`Unknown option: ${a}`);
+      console.error("Run 'kweaver auth change-password --help' for usage.");
+      return 1;
+    }
+    if (KNOWN_CP_VALUE.has(a)) i++;
+  }
+
+  const normalizedTarget = normalizeBaseUrl(url);
+  const account =
+    readOption(args, "--account") ?? readOption(args, "-u");
+  let oldPassword = readOption(args, "--old-password") ?? readOption(args, "-o");
+  let newPassword = readOption(args, "--new-password") ?? readOption(args, "-n");
+  const publicKeyFile = readOption(args, "--public-key-file");
+  const tlsInsecure = args.includes("--insecure") || args.includes("-k");
+
+  if (!account?.trim()) {
+    console.error("Missing required -u/--account.");
+    return 1;
+  }
+
+  const interactive = process.stdin.isTTY === true && process.stderr.isTTY === true;
+  try {
+    if (!interactive) {
+      if (!oldPassword || !newPassword) {
+        console.error(
+          "In non-interactive mode, --old-password and --new-password are required.",
+        );
+        return 1;
+      }
+    } else {
+      if (!oldPassword) {
+        oldPassword = await promptForPassword("Old password");
+      }
+      if (!newPassword) {
+        const n1 = await promptForPassword("New password (6-100 characters)");
+        const n2 = await promptForPassword("Confirm new password");
+        if (n1 !== n2) {
+          console.error("New passwords do not match.");
+          return 1;
+        }
+        newPassword = n1;
+      }
+    }
+
+    validateNewPasswordLengthForEacp(newPassword!);
+
+    let publicKeyPem: string | undefined;
+    if (publicKeyFile?.trim()) {
+      publicKeyPem = (await readFile(publicKeyFile.trim(), "utf8")).trim();
+    }
+
+    const result = await eacpModifyPassword(normalizedTarget, {
+      account: account.trim(),
+      oldPassword: oldPassword!,
+      newPassword: newPassword!,
+      publicKeyPem,
+      tlsInsecure,
+    });
+
+    if (!result.ok) {
+      console.error(formatEacpModifyFailure(result.status, result.json, result.body));
+      return 1;
+    }
+
+    console.log(`Password changed for ${account.trim()} on ${normalizedTarget}`);
+    return 0;
+  } catch (e) {
+    console.error(formatHttpError(e));
+    return 1;
+  }
 }
