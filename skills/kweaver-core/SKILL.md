@@ -5,11 +5,13 @@ description: >-
   语义搜索、执行 Action、Agent CRUD 与对话、Trace 数据分析。
   操作 Dataflow 文档流程 — 列出流程、触发运行、查询运行历史、查看步骤日志。
   操作 Skill 管理模块 — 注册 Skill、市场查找、渐进式读取、下载与安装。
+  操作 Toolbox / Tool — 创建工具箱、上传 OpenAPI 工具、发布与启停。
   操作 Vega 可观测平台 — 查询 Catalog/资源/连接器类型、健康巡检。
   当用户提到"知识网络"、"知识图谱"、"查询对象类"、
   "执行 Action"、"有哪些 Agent"、"创建 Agent"、"跟 Agent 对话"、"列出所有 Agent 模板"、"列出我创建的Agent"、
   "列出私人空间的Agent"、"dataflow"、"数据流"、"流程编排"、"流程运行记录"、"流程日志"、
   "触发 dataflow"、"查看 dataflow 运行历史"、"Skill"、"技能包"、"注册 Skill"、"安装 Skill"、"读取 SKILL.md"、
+  "toolbox"、"工具箱"、"上传工具"、"注册工具"、"OpenAPI 工具"、"启用工具"、"发布 toolbox"、
   "数据源"、"数据视图"、"原子视图"、"Catalog"、"Vega"、
   "健康检查"、"巡检"、"trace"、"证据链"、"数据流追踪"、"数据来源"、"数据怎么得到的"等意图时自动使用。
 allowed-tools: Bash(kweaver *), Bash(npx kweaver *)
@@ -71,6 +73,8 @@ kweaver [--user <userId|username>] <command> [subcommand] [options]
 | `dataview` | 数据视图（mdl-data-model / vega-backend） | `dataview list`、`find --name`、`get`、`query`、`delete`；BKN 绑定也可用 `vega resource` ID（type=resource） | `references/dataview.md` |
 | `dataflow` | Dataflow 文档流程 | `dataflow list`, `dataflow run <dagId> --file <path>`, `dataflow run <dagId> --url <remote-url> --name <filename>`, `dataflow runs <dagId> [--since <date-like>]`, `dataflow logs <dagId> <instanceId> [--detail]` | `references/dataflow.md` |
 | `skill` | Skill 注册、市场查找、渐进式读取、下载与安装 | `skill list`、`market`、`register --zip-file`、`content`、`read-file`、`install` | `references/skill.md` |
+| `toolbox` | 平台工具箱（toolbox）管理 | `toolbox create --name <n> --service-url <url>`、`toolbox list`、`toolbox publish/unpublish <id>`、`toolbox delete <id> [-y]` | `references/toolbox.md` |
+| `tool` | 工具箱内 tool 注册与启停（OpenAPI） | `tool upload --toolbox <id> <openapi-spec>`、`tool list --toolbox <id>`、`tool enable/disable --toolbox <id> <tool-id>...` | `references/tool.md` |
 | `vega` | Vega 可观测平台 | `vega health`, `vega catalog list`, `vega resource list`, `vega query execute -d <json>`, `vega sql --resource-type <t> --query "<sql>"` / `vega sql -d <json>` | `references/vega.md` |
 | `context-loader` | MCP 分层检索 | `context-loader config show`, `context-loader kn-search <query>` | `references/context-loader.md` |
 | `call` | 通用 API 调用 | `call <url> [-X POST] [-d '...']`（可用 `curl` 别名；支持 `--url`、`--data-raw` 等，见 `kweaver --help`） | `references/call.md` |
@@ -86,6 +90,7 @@ kweaver [--user <userId|username>] <command> [subcommand] [options]
 | 管理 Dataflow 文档流程 | `list` 看 DAG；`run` 触发本地文件或远程 URL；`runs --since` 看自然日运行记录；`logs --detail` 查步骤载荷 | [references/dataflow.md](references/dataflow.md) |
 | Trace 数据分析 | `agent trace <conversation_id>` 获取 trace 数据，构建证据链 | — |
 | 管理 Skill | `list` / `market` 查找 Skill；`content` / `read-file` 渐进式读取；`install` 下载并解压本地使用 | [references/skill.md](references/skill.md) |
+| 注册外部工具 | `toolbox create` 建箱 → `tool upload` 上传 OpenAPI → `tool list` 拿 `tool_id` → `tool enable` 启用 → `toolbox publish` 切到 published | [references/toolbox.md](references/toolbox.md) · [references/tool.md](references/tool.md) |
 
 **按需阅读**：需要子命令完整参数或编排示例时，读取对应的 reference 文件。
 
@@ -106,6 +111,8 @@ kweaver [--user <userId|username>] <command> [subcommand] [options]
 /kweaver-core 基于 "数据分析助手" 模板创建一个新的 Agent
 /kweaver-core 在 skill market 里查找名字包含 kweaver 的 skill
 /kweaver-core 读取 skill xxx 的 SKILL.md 并保存到本地目录
+/kweaver-core 创建一个名为 weather-svc 的 toolbox，对接 https://weather.example.com
+/kweaver-core 把 ./openapi.json 上传到 toolbox 1234567890 并启用所有工具，最后发布
 ```
 
 ## 注意事项
