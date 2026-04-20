@@ -29,7 +29,6 @@ import {
   normalizeBaseUrl,
   oauth2Login,
   oauth2PasswordSigninLogin,
-  playwrightLogin,
   promptForUsername,
   promptForPassword,
   refreshTokenLogin,
@@ -68,7 +67,6 @@ Login options:
   -u, --username         Username for HTTP /oauth2/signin (POST). If -p is omitted, password is prompted.
   -p, --password         Password for HTTP /oauth2/signin (POST). If -u is omitted, username is prompted.
   --http-signin          Force HTTP /oauth2/signin (no browser). Missing -u/-p are prompted from stdin.
-  --playwright           With -u/-p: force Playwright (skip HTTP sign-in). Without -u/-p: open Playwright for manual login.
   --insecure, -k         Skip TLS certificate verification (self-signed / dev HTTPS only)
   --no-auth              Save platform without OAuth (servers with no authentication). Same as detecting OAuth 404 during login.`);
 
@@ -77,13 +75,13 @@ Login options:
 
   if (target === "login") {
     if (rest[0] === "--help" || rest[0] === "-h") {
-      console.log(`kweaver auth login <platform-url> [--alias <name>] [--no-auth] [--no-browser] [-u user] [-p pass] [--http-signin] [--playwright] [--refresh-token T --client-id ID --client-secret S]`);
+      console.log(`kweaver auth login <platform-url> [--alias <name>] [--no-auth] [--no-browser] [-u user] [-p pass] [--http-signin] [--refresh-token T --client-id ID --client-secret S]`);
       return 0;
     }
     const url = rest[0];
     if (!url || url.startsWith("-")) {
       console.error(
-        "Usage: kweaver auth login <platform-url> [--alias <name>] [-u user] [-p pass] [--playwright]",
+        "Usage: kweaver auth login <platform-url> [--alias <name>] [-u user] [-p pass]",
       );
       return 1;
     }
@@ -113,7 +111,6 @@ Login options:
       const alias = readOption(args, "--alias");
       let username = readOption(args, "--username") ?? readOption(args, "-u");
       let password = readOption(args, "--password") ?? readOption(args, "-p");
-      const usePlaywright = args.includes("--playwright");
       const httpSignin = args.includes("--http-signin");
       const oauthProduct = readOption(args, "--oauth-product");
       const signinPublicKeyFile = readOption(args, "--signin-public-key-file");
@@ -136,7 +133,7 @@ Login options:
         "--http-signin",
         "--oauth-product",
         "--signin-public-key-file",
-        "--playwright", "--insecure", "-k", "--no-auth", "--redirect-uri",
+        "--insecure", "-k", "--no-auth", "--redirect-uri",
       ]);
       const KNOWN_VALUE_FLAGS = new Set([
         "--alias", "--client-id", "--client-secret", "--refresh-token",
@@ -166,21 +163,13 @@ Login options:
       if (noAuth && noBrowser) {
         console.error("--no-auth does not require a browser; --no-browser is ignored.");
       }
-      if (noAuth && (username || password || usePlaywright || httpSignin)) {
-        console.error("--no-auth cannot be used with Playwright login, HTTP sign-in, or -u/-p.");
-        return 1;
-      }
-      if (noBrowser && usePlaywright) {
-        console.error("--no-browser cannot be used with --playwright (Playwright opens a browser).");
+      if (noAuth && (username || password || httpSignin)) {
+        console.error("--no-auth cannot be used with HTTP sign-in or -u/-p.");
         return 1;
       }
       if (noBrowser && httpSignin) {
         // HTTP sign-in already runs without a browser; --no-browser is a no-op signal here.
         console.error("--http-signin already runs without a browser; --no-browser is redundant and ignored.");
-      }
-      if (httpSignin && usePlaywright) {
-        console.error("--http-signin cannot be used with --playwright.");
-        return 1;
       }
       if (httpSignin && refreshToken) {
         console.error("--http-signin cannot be used with --refresh-token.");
@@ -196,7 +185,7 @@ Login options:
       // credentials inline, prompt for the missing one(s) on stderr. Password is read
       // without echo when stdin is a TTY.
       const wantsCredentialLogin =
-        !noAuth && !refreshToken && !usePlaywright &&
+        !noAuth && !refreshToken &&
         (httpSignin || (noBrowser && (username || password)) || (!!username !== !!password));
       if (wantsCredentialLogin) {
         if (!username) username = await promptForUsername("Username");
@@ -229,14 +218,6 @@ Login options:
           oauthProduct: oauthProduct ?? undefined,
           signinPublicKeyPemPath: signinPublicKeyFile ?? undefined,
         });
-      } else if (username && password && usePlaywright) {
-        console.log("Logging in (headless, Playwright)...");
-        token = await playwrightLogin(normalizedTarget, {
-          username,
-          password,
-          tlsInsecure,
-          port: customPort,
-        });
       } else if (username && password) {
         console.log("Logging in (HTTP /oauth2/signin)...");
         token = await oauth2PasswordSigninLogin(normalizedTarget, {
@@ -248,11 +229,6 @@ Login options:
           clientSecret: clientSecret ?? undefined,
           oauthProduct: oauthProduct ?? undefined,
           signinPublicKeyPemPath: signinPublicKeyFile ?? undefined,
-        });
-      } else if (usePlaywright) {
-        console.log("Opening browser for login (Playwright)...");
-        token = await playwrightLogin(normalizedTarget, {
-          tlsInsecure, port: customPort,
         });
       } else {
         if (noBrowser) {
@@ -492,7 +468,7 @@ Login options:
     return 0;
   }
 
-  console.error("Usage: kweaver auth login <platform-url> [--alias <name>] [-u user] [-p pass] [--playwright]");
+  console.error("Usage: kweaver auth login <platform-url> [--alias <name>] [-u user] [-p pass]");
   console.error("       kweaver auth whoami [platform-url|alias] [--json]");
   console.error("       kweaver auth export [platform-url|alias] [--json]");
   console.error("       kweaver auth status [platform-url|alias]");
