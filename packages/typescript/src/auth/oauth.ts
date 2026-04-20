@@ -1378,6 +1378,46 @@ export function isStudiowebShellUnavailableError(err: unknown): boolean {
 }
 
 /**
+ * Build the JSON body for `POST /oauth2/signin` (matches the browser `oauth2-ui` form).
+ *
+ * `device.client_type` MUST be a value present in the EACP whitelist defined by
+ * `kweaver/deploy/auto_cofig/auto_config.sh`. `console_web` is the canonical CLI value
+ * (also used by `kweaver-admin`); other values such as `unknown` are rejected by strict
+ * deployments with `管理员已禁止此类客户端登录` — surfaced upstream as a `request_forbidden`
+ * `No CSRF value available in the session cookie` error after Hydra discards the rejected
+ * login challenge.
+ *
+ * `vcode` and `dualfactorauthinfo` must be present even when empty; otherwise eachttpserver
+ * returns HTTP 400 (invalid parameter).
+ */
+export function buildOauth2SigninPostBody(opts: {
+  csrftoken: string;
+  challenge: string;
+  account: string;
+  passwordCipher: string;
+  remember: boolean;
+}): Record<string, unknown> {
+  return {
+    _csrf: opts.csrftoken,
+    challenge: opts.challenge,
+    account: opts.account,
+    password: opts.passwordCipher,
+    vcode: { id: "", content: "" },
+    dualfactorauthinfo: {
+      validcode: { vcode: "" },
+      OTP: { OTP: "" },
+    },
+    remember: opts.remember,
+    device: {
+      name: "",
+      description: "",
+      client_type: "console_web",
+      udids: [],
+    },
+  };
+}
+
+/**
  * OAuth2 Authorization Code login using HTTP **only**: `GET /oauth2/signin` (Next.js shell) and
  * `POST /oauth2/signin` with an RSA PKCS#1 v1.5–encrypted password (same as the browser `rsa.min` / Studio
  * `core/mediator/auth` path).
@@ -1550,26 +1590,13 @@ export async function oauth2PasswordSigninLogin(
           ? false
           : process.env.KWEAVER_SIGNIN_PASSWORD_B64_RSA_MIN !== "1";
 
-    // Body shape matches browser `POST /oauth2/signin` (EACP / oauth2-ui); omitting vcode/dualfactorauthinfo
-    // causes 400 from eachttpserver (invalid parameter).
-    const postBody = {
-      _csrf: csrftoken,
+    const postBody = buildOauth2SigninPostBody({
+      csrftoken,
       challenge: loginChallenge,
       account: options.username,
-      password: "",
-      vcode: { id: "", content: "" },
-      dualfactorauthinfo: {
-        validcode: { vcode: "" },
-        OTP: { OTP: "" },
-      },
+      passwordCipher: "",
       remember,
-      device: {
-        name: "",
-        description: "",
-        client_type: "unknown",
-        udids: [],
-      },
-    };
+    });
 
     const origin = new URL(base).origin;
     /** Some gateways (e.g. DIP) return HTTP 200 + `{"redirect":"..."}` instead of 3xx Location. */
