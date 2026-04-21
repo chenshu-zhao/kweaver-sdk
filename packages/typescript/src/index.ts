@@ -264,8 +264,11 @@ export { decodeJwtPayload, extractUserIdFromJwt } from "./config/jwt.js";
 // ── OAuth (advanced — CLI uses these internally; optional for custom login tools) ─
 export {
   DEFAULT_SIGNIN_RSA_MODULUS_HEX,
+  InitialPasswordChangeRequiredError,
   oauth2PasswordSigninLogin,
   parseSigninPageHtmlProps,
   rsaModulusHexToSpkiPem,
   STUDIOWEB_LOGIN_PUBLIC_KEY_PEM,
 } from "./auth/oauth.js";
+
+export { eacpModifyPassword, encryptModifyPwd } from "./auth/eacp-modify-password.js";
